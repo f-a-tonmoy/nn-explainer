@@ -83,6 +83,18 @@ test('construct mode interpolates the target at every knot with n units', () => 
   }
 });
 
+test('Adam and gradient descent take the textbook steps', () => {
+  const one = () => ({ W: [Float64Array.of(1)], b: [Float64Array.of(0)] }), g = v => ({ gW: [Float64Array.of(v)], gb: [Float64Array.of(0)] });
+  const net = one(), adam = NN.optimizer(net, 'adam', 0.1);
+  adam(g(2)); // m = 0.2, v = 0.004; bias-corrected 2 and 4, so the step is 0.1 · 2 / 2
+  assert.ok(Math.abs(net.W[0][0] - 0.9) < 1e-8);
+  adam(g(1)); // m = 0.28, v = 0.004996; corrections 1 − 0.9² and 1 − 0.999²
+  assert.ok(Math.abs(net.W[0][0] - (0.9 - (0.1 * (0.28 / 0.19)) / Math.sqrt(0.004996 / 0.001999))) < 1e-8);
+  const gdNet = one(), gd = NN.optimizer(gdNet, 'gd', 0.5);
+  gd(g(2));
+  assert.equal(gdNet.W[0][0], 0);
+});
+
 test('architectures: parameter counts follow the closed forms and stay near the budget', () => {
   for (const [P, D] of [[100, 2], [400, 6], [1000, 10]]) {
     const a = NN.archs(P, D), w = a.deep[1], h = a.shallow[1];

@@ -209,9 +209,7 @@
     step: () => x => (x < 0.5 ? 0 : 1),
   };
   NN.formulas = {
-    sine: 'f(x) = sin(2πx)',
     sawtooth: T => `f(x) = 1 − |2·frac(${T}x) − 1|, ${T} teeth`,
-    step: 'f(x) = 0 for x < 0.5, 1 otherwise',
   };
 
   // One hidden layer, n ReLU units, built directly: the piecewise-linear interpolant of f
@@ -297,10 +295,15 @@
 
   NN.summary = v => ({ mean: v.reduce((s, x) => s + x, 0) / v.length, min: Math.min(...v), max: Math.max(...v) });
 
-  NN.runExperiment = (cfg, progress) => {
+  // The zigzag target with its training and held-out points; shared so the experiment and the animation can't drift apart.
+  NN.sawtoothData = cfg => {
     const f = NN.targets.sawtooth(cfg.teeth), rd = NN.rng(cfg.dataSeed), rt = NN.rng(cfg.dataSeed + 1);
-    const Xtr = Array.from({ length: cfg.nTrain }, () => [rd()]), Ttr = Xtr.map(x => [f(x[0])]);
-    const Xte = Array.from({ length: cfg.nTest }, () => [rt()]), Tte = Xte.map(x => [f(x[0])]);
+    const X = Array.from({ length: cfg.nTrain }, () => [rd()]), Xt = Array.from({ length: cfg.nTest }, () => [rt()]);
+    return { f, X, T: X.map(x => [f(x[0])]), Xt, Tt: Xt.map(x => [f(x[0])]) };
+  };
+
+  NN.runExperiment = (cfg, progress) => {
+    const { f, X: Xtr, T: Ttr, Xt: Xte, Tt: Tte } = NN.sawtoothData(cfg);
     const grid = Array.from({ length: 401 }, (_, i) => i / 400);
     const archs = NN.archs(cfg.budget, cfg.depth), runs = [], every = Math.max(1, Math.floor(cfg.epochs / 100));
     const total = 2 * cfg.seeds * cfg.epochs;
@@ -332,9 +335,7 @@
   // Trains the shallow and the deep network side by side on one seed, calling snap(state) about every
   // `every` ms so a page can animate it. Same data and init as runExperiment, so seed-1 numbers match.
   NN.duel = (cfg, snap, every = 33) => {
-    const f = NN.targets.sawtooth(cfg.teeth), rd = NN.rng(cfg.dataSeed), rt = NN.rng(cfg.dataSeed + 1);
-    const X = Array.from({ length: cfg.nTrain }, () => [rd()]), T = X.map(x => [f(x[0])]);
-    const Xt = Array.from({ length: cfg.nTest }, () => [rt()]), Tt = Xt.map(x => [f(x[0])]);
+    const { X, T, Xt, Tt } = NN.sawtoothData(cfg);
     const grid = Array.from({ length: 201 }, (_, i) => i / 200), archs = NN.archs(cfg.budget, cfg.depth);
     const nets = ['shallow', 'deep'].map(m => { const net = NN.mlp(archs[m], cfg.act, 'identity', cfg.seed); return { m, net, step: NN.optimizer(net, cfg.opt, cfg.lr), loss: NN.mse(net, X, T) }; });
     const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());

@@ -861,9 +861,7 @@ footer { border-top: 1px solid var(--rule); background: var(--band); }
     step: () => x => (x < 0.5 ? 0 : 1),
   };
   NN.formulas = {
-    sine: 'f(x) = sin(2πx)',
     sawtooth: T => `f(x) = 1 − |2·frac(${T}x) − 1|, ${T} teeth`,
-    step: 'f(x) = 0 for x < 0.5, 1 otherwise',
   };
 
   // One hidden layer, n ReLU units, built directly: the piecewise-linear interpolant of f
@@ -949,10 +947,15 @@ footer { border-top: 1px solid var(--rule); background: var(--band); }
 
   NN.summary = v => ({ mean: v.reduce((s, x) => s + x, 0) / v.length, min: Math.min(...v), max: Math.max(...v) });
 
-  NN.runExperiment = (cfg, progress) => {
+  // The zigzag target with its training and held-out points; shared so the experiment and the animation can't drift apart.
+  NN.sawtoothData = cfg => {
     const f = NN.targets.sawtooth(cfg.teeth), rd = NN.rng(cfg.dataSeed), rt = NN.rng(cfg.dataSeed + 1);
-    const Xtr = Array.from({ length: cfg.nTrain }, () => [rd()]), Ttr = Xtr.map(x => [f(x[0])]);
-    const Xte = Array.from({ length: cfg.nTest }, () => [rt()]), Tte = Xte.map(x => [f(x[0])]);
+    const X = Array.from({ length: cfg.nTrain }, () => [rd()]), Xt = Array.from({ length: cfg.nTest }, () => [rt()]);
+    return { f, X, T: X.map(x => [f(x[0])]), Xt, Tt: Xt.map(x => [f(x[0])]) };
+  };
+
+  NN.runExperiment = (cfg, progress) => {
+    const { f, X: Xtr, T: Ttr, Xt: Xte, Tt: Tte } = NN.sawtoothData(cfg);
     const grid = Array.from({ length: 401 }, (_, i) => i / 400);
     const archs = NN.archs(cfg.budget, cfg.depth), runs = [], every = Math.max(1, Math.floor(cfg.epochs / 100));
     const total = 2 * cfg.seeds * cfg.epochs;
@@ -984,9 +987,7 @@ footer { border-top: 1px solid var(--rule); background: var(--band); }
   // Trains the shallow and the deep network side by side on one seed, calling snap(state) about every
   // `every` ms so a page can animate it. Same data and init as runExperiment, so seed-1 numbers match.
   NN.duel = (cfg, snap, every = 33) => {
-    const f = NN.targets.sawtooth(cfg.teeth), rd = NN.rng(cfg.dataSeed), rt = NN.rng(cfg.dataSeed + 1);
-    const X = Array.from({ length: cfg.nTrain }, () => [rd()]), T = X.map(x => [f(x[0])]);
-    const Xt = Array.from({ length: cfg.nTest }, () => [rt()]), Tt = Xt.map(x => [f(x[0])]);
+    const { X, T, Xt, Tt } = NN.sawtoothData(cfg);
     const grid = Array.from({ length: 201 }, (_, i) => i / 200), archs = NN.archs(cfg.budget, cfg.depth);
     const nets = ['shallow', 'deep'].map(m => { const net = NN.mlp(archs[m], cfg.act, 'identity', cfg.seed); return { m, net, step: NN.optimizer(net, cfg.opt, cfg.lr), loss: NN.mse(net, X, T) }; });
     const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
@@ -1012,7 +1013,7 @@ footer { border-top: 1px solid var(--rule); background: var(--band); }
   const NN = window.NN;
   const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const css = getComputedStyle(document.documentElement), C = {};
-  for (const k of ['ink', 'muted', 'rule', 'plum', 'plum-tint', 'ochre', 'ochre-tint', 'verm', 'gray', 'band', 'panel'])
+  for (const k of ['ink', 'muted', 'rule', 'plum', 'plum-tint', 'ochre', 'ochre-tint', 'verm', 'gray', 'band'])
     C[k.replace(/-(\w)/, (_, c) => c.toUpperCase())] = css.getPropertyValue('--' + k).trim();
   const MONO = css.getPropertyValue('--mono').trim();
   const STILL = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1022,6 +1023,7 @@ footer { border-top: 1px solid var(--rule); background: var(--band); }
   const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
   const cell = (k, v, cls = '') => `<div class="cell ${cls}"><div class="k">${k}</div><div class="v">${v}</div></div>`;
   const easeOut = p => 1 - (1 - p) ** 3;
+  const archName = s => (s.length === 3 ? `1-${s[1]}-1` : `1-${s[1]}×${s.length - 2}-1`); // layer sizes -> "1-8×6-1"
   const label = (el, text) => el.setAttribute('aria-label', text); // keeps a chart's description in step with what it shows
   const redraws = [];
   const onResize = f => { redraws.push(f); f(); };
@@ -1221,9 +1223,11 @@ footer { border-top: 1px solid var(--rule); background: var(--band); }
   }
   function plot(cv, opt) {
     const M = { l: 48, r: 12, t: 10, b: opt.xlabel ? 42 : 30 };
-    return (series, extra = {}) => {
+    let last = null; // the most recent layout, so pointer positions can be mapped back to data
+    const draw = (series, extra = {}) => {
       const { ctx, W, H } = fitCanvas(cv, opt.aspect || 0.5), w = W - M.l - M.r, h = H - M.t - M.b;
       const [x0, x1] = extra.x || opt.x, [y0, y1] = extra.y || opt.y, log = opt.log;
+      last = { w, h, x0, x1, y0, y1 };
       const Y = v => (log ? (v <= 0 ? y0 : Math.log10(v)) : v);
       const px = x => M.l + ((x - x0) / (x1 - x0)) * w, py = v => M.t + (1 - (Math.min(y1, Math.max(y0, Y(v))) - y0) / (y1 - y0)) * h;
       ctx.fillStyle = C.band; ctx.fillRect(0, 0, W, H);
@@ -1262,6 +1266,12 @@ footer { border-top: 1px solid var(--rule); background: var(--band); }
         ctx.fillStyle = C.muted; ctx.fillText(extra.empty, M.l + w / 2, M.t + h / 2);
       }
     };
+    // pointer event -> [x, y] in data units, using the same margins and ranges as the last draw (linear axes only)
+    draw.toData = e => {
+      const r = cv.getBoundingClientRect(), { w, h, x0, x1, y0, y1 } = last;
+      return [x0 + ((e.clientX - r.left - M.l) / w) * (x1 - x0), y1 - ((e.clientY - r.top - M.t) / h) * (y1 - y0)];
+    };
+    return draw;
   }
   const logRange = vals => {
     const pos = vals.filter(v => v > 0);
@@ -1581,7 +1591,7 @@ footer { border-top: 1px solid var(--rule); background: var(--band); }
     let S, raf = 0, sweep = null;
     const cfg = () => {
       const act = k('act').value, H = Math.max(1, Math.min(8, Math.round(num(k('H')))));
-      return { act, H, out: act === 'step' ? 'step' : 'sigmoid', lr: num(k('lr')), epochs: Math.max(1, Math.round(num(k('epochs')))), seed: Math.max(1, Math.round(num(k('seed')))) };
+      return { act, H, out: act === 'step' ? 'step' : 'sigmoid', lr: num(k('lr')), epochs: Math.min(20000, Math.max(1, Math.round(num(k('epochs'))))), seed: Math.max(1, Math.round(num(k('seed')))) };
     };
     const settingsText = c => `Dataset XOR (4 points) · network 2-${c.H}-1, ${NN.paramCount([2, c.H, 1])} parameters · hidden ${c.act}, output ${c.out} · loss MSE · full-batch gradient descent, learning rate ${c.lr} · ${c.epochs} epochs · init U(±1/√fan_in)`;
     const correct = net => X.filter((x, i) => (NN.out(net, x) > 0.5 ? 1 : 0) === T[i][0]).length;
@@ -1721,7 +1731,7 @@ footer { border-top: 1px solid var(--rule); background: var(--band); }
       raf = requestAnimationFrame(tick);
     }
     const paint = e => {
-      const r = cv.getBoundingClientRect(), x = (e.clientX - r.left - 48) / (r.width - 60), y = 1.3 - ((e.clientY - r.top - 10) / (r.height - 52)) * 2.6;
+      const [x, y] = draw.toData(e);
       const i = Math.round(Math.min(1, Math.max(0, x)) * 100), v = Math.min(1.2, Math.max(-1.2, y));
       if (Array.isArray(painting)) { const [pi, pv] = painting, a = Math.min(i, pi), b = Math.max(i, pi); for (let j = a; j <= b; j++) drawn[j] = b === a ? v : pv + ((j - pi) / (i - pi)) * (v - pv); } else drawn[i] = v;
       painting = [i, v];
@@ -1762,10 +1772,9 @@ footer { border-top: 1px solid var(--rule); background: var(--band); }
     const opt = { aspect: 0.62, x: [0, 1], y: [-0.25, 1.25], xlabel: 'x' };
     const draws = { shallow: plot($('[data-role=demo-shallow]', root), opt), deep: plot($('[data-role=demo-deep]', root), opt) };
     const grid = Array.from({ length: 201 }, (_, i) => i / 200), archs = NN.archs(base.budget, base.depth);
-    const name = s => (s.length === 3 ? `1-${s[1]}-1` : `1-${s[1]}×${s.length - 2}-1`);
     let teeth = 4, D = null, seen = false;
-    $('[data-role=demo-label-shallow]', root).textContent = `Shallow and wide: ${name(archs.shallow)}, ${NN.paramCount(archs.shallow)} parameters`;
-    $('[data-role=demo-label-deep]', root).textContent = `Deep and narrow: ${name(archs.deep)}, ${NN.paramCount(archs.deep)} parameters`;
+    $('[data-role=demo-label-shallow]', root).textContent = `Shallow and wide: ${archName(archs.shallow)}, ${NN.paramCount(archs.shallow)} parameters`;
+    $('[data-role=demo-label-deep]', root).textContent = `Deep and narrow: ${archName(archs.deep)}, ${NN.paramCount(archs.deep)} parameters`;
     // shape sketches: every layer is drawn, but the shallow network's 133 units are drawn as a sample
     const sketch = (el, sizes) => {
       const shown = sizes.map((n, i) => (i && i < sizes.length - 1 ? Math.min(n, 14) : n)), dot = { cls: 'dot', r: 3.5 };
@@ -1823,7 +1832,6 @@ footer { border-top: 1px solid var(--rule); background: var(--band); }
     const int = (n, lo, hi) => Math.min(hi, Math.max(lo, Math.round(num(k(n)))));
     const cfg = () => ({ teeth: int('teeth', 1, 32), budget: int('budget', 20, 5000), depth: int('depth', 2, 16), act: k('act').value, opt: k('opt').value,
       lr: num(k('lr')), epochs: int('epochs', 10, 50000), seeds: int('seeds', 1, 50), nTrain: 256, nTest: 1000, dataSeed: 0 });
-    const archName = s => (s.length === 3 ? `1-${s[1]}-1` : `1-${s[1]}×${s.length - 2}-1`);
     function arch() {
       const c = cfg(), a = NN.archs(c.budget, c.depth), ps = NN.paramCount(a.shallow), pd = NN.paramCount(a.deep);
       $('[data-role=arch]', root).innerHTML = `<div class="cells" style="margin:0">${cell(`Shallow ${archName(a.shallow)}`, `${ps}<small> parameters</small>`)}${cell(`Deep ${archName(a.deep)}`, `${pd}<small> parameters</small>`)}</div>`;
