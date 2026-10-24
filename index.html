@@ -1,0 +1,1909 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Perceptrons, the Atomic Unit of Neural Networks</title>
+<meta name="description" content="An interactive walk from one perceptron to a deep network: the learning rule, XOR, backpropagation, universal approximation, and what depth buys.">
+<meta name="author" content="Fahim Ahamed">
+<!-- Share preview. build.js swaps https://f-a-tonmoy.github.io/nn-explainer/ for SITE_URL; LinkedIn needs the image as a full URL. Date also appears in the byline. -->
+<meta property="og:type" content="article">
+<meta property="og:title" content="Perceptrons, the Atomic Unit of Neural Networks">
+<meta property="og:description" content="From one perceptron to a deep network, and why stacking layers matters. An interactive explainer.">
+<meta property="og:url" content="https://f-a-tonmoy.github.io/nn-explainer/">
+<meta property="og:image" content="https://f-a-tonmoy.github.io/nn-explainer/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The title Perceptrons beside a drawing of a small neural network: two inputs, three hidden neurons, one output">
+<meta property="article:published_time" content="2026-10-26">
+<meta property="article:author" content="https://www.linkedin.com/in/f-a-tonmoy/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Perceptrons, the Atomic Unit of Neural Networks">
+<meta name="twitter:description" content="From one perceptron to a deep network, and why stacking layers matters. An interactive explainer.">
+<meta name="twitter:image" content="https://f-a-tonmoy.github.io/nn-explainer/og.png">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23000'/%3E%3Ctext x='32' y='43' font-family='Georgia,serif' font-size='30' font-weight='700' fill='%23fff' text-anchor='middle'%3EFA%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #f8f5f0;
+  --band: #ffffff;
+  --panel: #efe9e1;
+  --ink: #221b20;
+  --muted: #6a6066;
+  --rule: #ddd4ca;
+  --plum: #6b2d5c;
+  --plum-tint: #e9d7e4;
+  --ochre: #b27309;
+  --ochre-text: #8a5800;
+  --ochre-tint: #f6e7c8;
+  --verm: #c2410c;
+  --gray: #8f878c;
+  --serif: 'Newsreader', Georgia, serif;
+  --mono: 'Geist Mono', ui-monospace, Menlo, Consolas, monospace;
+  --col: 720px;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 400 19px/1.6 var(--serif); -webkit-text-size-adjust: 100%; }
+a { color: var(--plum); }
+a.term { color: inherit; text-decoration: underline dotted 1.5px; text-underline-offset: 3px; }
+a.term:hover { text-decoration-style: solid; }
+sup a { font: 600 12px var(--mono); text-decoration: none; padding: 0 1px; }
+code, .mono { font-family: var(--mono); font-size: 0.82em; }
+pre { background: var(--panel); padding: 14px 16px; overflow-x: auto; font: 14px/1.5 var(--mono); }
+
+/* ---------- opener: title beside a live XOR sweep ---------- */
+.intro { max-width: 1060px; margin: 0 auto; padding: 104px 16px 88px; display: grid; grid-template-columns: 1.25fr 1fr; gap: 56px; align-items: center; border-bottom: 1px solid var(--rule); }
+@media (max-width: 860px) { .intro { grid-template-columns: 1fr; gap: 40px; padding: 56px 16px 48px; } }
+.hero { margin: 0; padding: 16px 16px 14px; background: var(--band); border: 1px solid var(--rule); box-shadow: 0 1px 0 var(--rule), 0 12px 32px -20px rgba(34, 27, 32, .35); }
+.hero canvas { background: none; }
+.hero-cap { font: 500 12px/1.4 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--plum); margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+.live { width: 8px; height: 8px; border-radius: 50%; background: var(--verm); flex: none; animation: live 1.6s ease-in-out infinite; }
+@keyframes live { 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .live { animation: none; } }
+.hero .key { margin: 10px 0 0; font-size: 12px; }
+.hero-cells { grid-template-columns: repeat(3, 1fr); }
+.hero-cells .cell { padding: 7px 10px 8px; }
+.hero-cells .v { font-size: 22px; }
+.eyebrow { font: 500 13px/1.4 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--plum); margin: 0 0 34px; }
+h1 { font: 600 clamp(38px, 5.4vw, 60px)/1.02 var(--serif); letter-spacing: -0.02em; margin: 0 0 22px; text-wrap: balance; }
+/* one big word, then the subtitle on its own line, instead of "Title: Subtitle" */
+h1 { font-size: clamp(52px, 7.6vw, 86px); line-height: 1; letter-spacing: -0.03em; margin-bottom: 40px; }
+h1 em { display: block; font-style: italic; font-weight: 400; color: var(--plum); font-size: 0.42em; line-height: 1.2; letter-spacing: -0.01em; margin-top: 22px; }
+.deck { font-size: 22px; line-height: 1.55; color: var(--muted); margin: 0 0 44px; max-width: 30em; text-wrap: pretty; }
+.byline { font: 13px var(--mono); color: var(--muted); margin: 0; padding-top: 20px; border-top: 1px solid var(--rule); display: inline-block; }
+.byline a { color: var(--ink); }
+
+/* ---------- body ---------- */
+main { max-width: var(--col); margin: 0 auto; padding: 8px 16px 40px; }
+.lede { font-weight: 600; font-size: 24px; line-height: 1.4; margin-top: 48px; }
+section { padding-top: 40px; }
+.kicker { font: 500 13px var(--mono); letter-spacing: 0.08em; color: var(--plum); margin: 24px 0 6px; }
+h2 { font: 600 34px/1.15 var(--serif); margin: 0 0 18px; letter-spacing: -0.01em; }
+h3 { font: 600 23px/1.25 var(--serif); margin: 34px 0 8px; }
+.label-tag { font: 500 12px var(--mono); text-transform: uppercase; letter-spacing: 0.06em; background: var(--ochre-tint); color: var(--ochre-text); padding: 2px 7px; margin-right: 6px; white-space: nowrap; }
+table { border-collapse: collapse; font: 14px var(--mono); width: 100%; }
+th, td { padding: 6px 8px; border-bottom: 1px solid var(--rule); text-align: left; }
+th { font-weight: 600; }
+.table-wrap { overflow-x: auto; }
+
+/* ---------- section nav ---------- */
+.nav { position: fixed; top: 50%; transform: translateY(-50%); left: calc(50% + var(--col) / 2 + 28px); z-index: 5; list-style: none; margin: 0; padding: 0; }
+.nav a { display: flex; align-items: center; gap: 10px; font: 13px var(--mono); color: var(--muted); text-decoration: none; padding: 5px 0; }
+.nav .num { width: 22px; }
+.nav .txt { opacity: 0; transform: translateX(-4px); transition: opacity .15s, transform .15s; white-space: nowrap; }
+.nav a:hover .txt, .nav a.active .txt { opacity: 1; transform: none; }
+.nav a.active { color: var(--plum); font-weight: 600; }
+.nav { transition: opacity .2s; }
+.to-top { position: fixed; right: 16px; bottom: 16px; z-index: 6; background: var(--band); box-shadow: 0 1px 4px rgba(0,0,0,.12); transition: opacity .2s; }
+.to-top.away { opacity: 0; pointer-events: none; }
+.nav.away { opacity: 0; pointer-events: none; }
+@media (max-width: 1120px) { .nav { display: none; } }
+
+/* ---------- figures ---------- */
+figure { margin: 30px 0 34px; background: var(--panel); padding: 18px 18px 14px; }
+.fig-title { font: 600 20px/1.3 var(--serif); margin: 4px 0 8px; }
+.howto { font-size: 17px; line-height: 1.45; border-left: 3px solid var(--plum); padding: 2px 0 2px 12px; margin: 0 0 14px; }
+.key { display: flex; flex-wrap: wrap; gap: 6px 16px; font: 13px var(--mono); color: var(--ink); margin: 0 0 10px; }
+.key span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { display: inline-block; width: 12px; height: 12px; }
+.sw.c1 { background: var(--plum); border-radius: 50%; }
+.sw.c0 { border: 2.5px solid var(--ochre); }
+.sw.mis { border: 2.5px solid var(--verm); border-radius: 50%; width: 15px; height: 15px; }
+.sw.line { height: 3px; width: 18px; }
+figcaption { font-size: 15px; line-height: 1.45; color: var(--muted); margin-top: 12px; }
+canvas { display: block; width: 100%; background: var(--band); touch-action: pan-y; }
+canvas:focus-visible { outline: 2px solid var(--verm); outline-offset: 2px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.two > div > .sub { font: 13px var(--mono); color: var(--muted); margin: 0 0 4px; }
+@media (max-width: 560px) { .two { grid-template-columns: 1fr; } }
+
+.controls { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: end; margin: 12px 0; font: 13px var(--mono); }
+.controls label { display: flex; flex-direction: column; gap: 3px; color: var(--muted); }
+.controls input[type=number], .controls select { font: 14px var(--mono); padding: 5px 6px; border: 1px solid var(--rule); background: var(--band); color: var(--ink); width: 92px; border-radius: 0; }
+.controls select { width: auto; }
+.controls input[type=range] { width: 150px; accent-color: var(--plum); }
+button { font: 500 13px var(--mono); padding: 7px 12px; border: 1px solid var(--ink); background: var(--band); color: var(--ink); cursor: pointer; border-radius: 0;
+  transition: background-color 150ms ease, color 150ms ease, transform 120ms cubic-bezier(0.23, 1, 0.32, 1); }
+button:active:not(:disabled) { transform: scale(0.97); }
+button.primary { background: var(--plum); border-color: var(--plum); color: #fff; }
+@media (hover: hover) and (pointer: fine) {
+  button:hover:not(:disabled) { background: var(--plum-tint); }
+  button.primary:hover:not(:disabled) { background: #57234a; }
+}
+button[aria-pressed=true] { background: var(--ink); color: #fff; }
+button:disabled { opacity: 0.45; cursor: default; }
+button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline: 2px solid var(--verm); outline-offset: 2px; }
+.group { display: flex; gap: 0; }
+.group button + button { border-left: 0; }
+
+/* plot on the left, everything you touch on the right */
+.stage { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.side { display: flex; flex-direction: column; gap: 10px; }
+.side .controls { margin: 0; }
+.side .controls input[type=number] { width: 72px; }
+.side .status { margin: 0; font-size: 16px; }
+.side .log { max-height: 13em; }
+.neuron-rows .controls { margin: 6px 0; }
+.row-name { font: 600 13px var(--mono); color: var(--ink); width: 9.5em; align-self: center; }
+.neuron-rows input[type=number] { width: 76px; }
+.status.solved { color: var(--plum); }
+.controls.stack { flex-direction: column; align-items: stretch; gap: 6px; }
+.controls.stack label { flex-direction: row; justify-content: space-between; align-items: center; gap: 10px; }
+.controls.stack label b { color: var(--ink); font-weight: 600; display: inline-block; min-width: 3.5em; }
+.controls.stack input[type=range] { width: 60%; }
+@media (max-width: 640px) { .stage { grid-template-columns: 1fr; } }
+
+/* borders on the cells, not gaps on a filled grid, so an odd last row leaves no gray block */
+.cells { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); border-top: 1px solid var(--rule); border-left: 1px solid var(--rule); margin-top: 10px; }
+.side .cells { margin-top: 0; }
+.cell { background: var(--band); padding: 8px 10px 9px; border-right: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.cell .k { font: 12px/1.3 var(--mono); color: var(--muted); }
+.cell .v { font: 600 24px/1.2 var(--serif); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.cell .v small { font: 13px var(--mono); color: var(--muted); font-weight: 400; }
+.cell.bad .v { color: var(--verm); }
+.cell.good .v { color: var(--plum); }
+
+.seedgrid { display: grid; grid-template-columns: repeat(20, 1fr); gap: 3px; margin-top: 8px; max-width: 520px; }
+.seedgrid:empty { display: none; }
+.seedgrid button { padding: 0; aspect-ratio: 1; border: 1.5px solid var(--ochre); background: var(--band); min-width: 0; }
+.seedgrid button.ok { background: var(--plum); border-color: var(--plum); }
+.seedgrid button.cur { outline: 2px solid var(--ink); outline-offset: 1px; }
+.readout { font: 14px/1.55 var(--mono); background: var(--band); padding: 10px 12px; margin-top: 10px; }
+.readout b { font-weight: 600; }
+.readout .bad { color: var(--verm); }
+.status { font-size: 17px; line-height: 1.45; margin-top: 10px; min-height: 2.9em; }
+.status.cycle { color: var(--verm); }
+.status:empty { min-height: 0; margin: 0; }
+.log { font: 12.5px/1.5 var(--mono); color: var(--muted); margin: 8px 0 0; padding: 0; list-style: none; max-height: 9.5em; overflow: auto; }
+.settings { font: 12.5px/1.55 var(--mono); color: var(--muted); border-top: 1px dashed var(--rule); margin-top: 8px; padding-top: 6px; }
+.big { font: 600 26px var(--serif); color: var(--ink); }
+.progress { height: 6px; background: var(--rule); margin-top: 10px; }
+.progress > div { height: 100%; width: 0; background: var(--plum); }
+tr.bad td { color: var(--verm); }
+tr.current td { background: var(--plum-tint); }
+
+/* node-and-edge diagrams, drawn at the container's real width so text stays readable */
+.net-wrap { width: 100%; margin: 6px 0 4px; }
+.net { display: block; font-family: var(--mono); overflow: visible; }
+.net text { font-size: 13px; fill: var(--ink); }
+.net .sub { font-size: 12px; fill: var(--muted); }
+.net .title { font-size: 12px; fill: var(--muted); letter-spacing: 0.04em; }
+.net .edge { stroke: var(--gray); stroke-width: 1.5; fill: none; }
+.net .edge.pos { stroke: var(--plum); }
+.net .edge.neg { stroke: var(--ochre); }
+.net .edge.faint { stroke: var(--rule); stroke-width: 1; }
+.net .node { fill: var(--band); stroke: var(--ink); stroke-width: 1.5; }
+.net .node.input { fill: var(--panel); }
+.net .node.on { fill: var(--plum); stroke: var(--plum); }
+.net .node.dot { fill: var(--ink); stroke: none; }
+.net .node.on + text { fill: #fff; }
+.net .lblbg { fill: var(--band); }
+.net .box { fill: var(--band); stroke: var(--ink); stroke-width: 1.5; }
+.net .box.ghost { fill: var(--panel); stroke: var(--gray); }
+.net .bar { fill: var(--plum); }
+.net .arrow { stroke: var(--ink); stroke-width: 1.5; fill: none; }
+.net .arrow.back { stroke: var(--verm); }
+.net .ahead { fill: var(--ink); }
+.net .ahead.back { fill: var(--verm); }
+.net .backtext { fill: var(--verm); }
+figure.diagram { padding-bottom: 12px; }
+table.pick tbody tr { cursor: pointer; }
+/* fine print and exact settings: one click away, so beginners aren't stopped by them */
+details.fine > summary, details.settings > summary { cursor: pointer; font: 500 12.5px var(--mono); color: var(--muted); width: fit-content; }
+details.fine > summary::marker, details.settings > summary::marker { color: var(--plum); }
+details.fine[open] > summary, details.settings[open] > summary { margin-bottom: 6px; color: var(--ink); }
+details.settings { font: 12.5px/1.55 var(--mono); color: var(--muted); margin-top: 8px; }
+.aside-fine { margin: -4px 0 16px; font-size: 16px; line-height: 1.5; }
+.aside-fine p { margin: 6px 0; }
+.short-answer { margin: 24px 0 22px; font-size: 18px; line-height: 1.5; }
+.bridge { font-style: italic; color: var(--plum); margin-top: 26px; }
+details.advanced { margin-top: 16px; border-top: 1px solid var(--rule); padding-top: 10px; }
+details.advanced > summary { cursor: pointer; font: 500 14px var(--mono); color: var(--plum); padding: 6px 0; list-style-position: inside; }
+@media (hover: hover) and (pointer: fine) { details.advanced > summary:hover { text-decoration: underline; } }
+.found { border: 2px dashed var(--ochre); background: var(--band); padding: 14px 18px; margin: 28px 0; }
+.found h3 { margin-top: 0; }
+.found .empty { font: 14px var(--mono); color: var(--ochre-text); }
+.aside { border-left: 3px solid var(--rule); padding-left: 14px; color: var(--ink); }
+.open-q { background: var(--band); border-top: 2px solid var(--ink); padding: 14px 18px; margin: 26px 0; }
+
+/* ---------- footer ---------- */
+footer { border-top: 1px solid var(--rule); background: var(--band); }
+.foot { max-width: var(--col); margin: 0 auto; padding: 28px 16px 60px; font-size: 16px; line-height: 1.5; }
+.foot h2 { font-size: 24px; margin-top: 18px; }
+.foot ol { padding-left: 22px; }
+.foot li { margin-bottom: 8px; }
+.noscript { font: 14px/1.5 var(--mono); background: var(--ochre-tint); color: var(--ochre-text); padding: 10px 14px; margin: 32px 0 0; }
+.foot-rule { border: 0; border-top: 1px solid var(--rule); margin: 32px 0 18px; }
+.repo { font: 14px/1.5 var(--mono); color: var(--muted); margin: 0; }
+.repo a { color: var(--plum); }
+.unverified { font: 12px var(--mono); color: var(--verm); }
+.verified { font: 12px var(--mono); color: var(--muted); }
+
+</style>
+</head>
+<body>
+
+<header class="intro">
+  <div>
+    <p class="eyebrow">Neural networks explained</p>
+    <h1>Perceptrons <em>the atomic unit of neural networks</em></h1>
+    <p class="deck">One artificial neuron can only draw one straight line. Stack enough of them and you get a core part of every large language model.</p>
+    <p class="byline">By Fahim Ahamed · <time datetime="2026-10-26">October 26, 2026</time> · <a href="https://www.linkedin.com/in/f-a-tonmoy/" target="_blank" rel="noopener">LinkedIn</a> · <a href="https://f-a-tonmoy.github.io/" target="_blank" rel="noopener">Portfolio</a></p>
+  </div>
+  <figure class="hero" id="fig-hero">
+    <p class="hero-cap"><span class="live" aria-hidden="true"></span>One line, trying every position to split XOR</p>
+    <canvas role="img" aria-label="A straight line sweeping across the four XOR points; it never classifies all four correctly"></canvas>
+    <div class="key"><span><i class="sw c1"></i>Should be 1</span><span><i class="sw c0"></i>Should be 0</span><span><i class="sw mis"></i>Wrong side</span></div>
+    <div class="cells hero-cells" aria-live="off"></div>
+  </figure>
+</header>
+
+<ol class="nav" aria-label="Sections">
+  <li><a href="#s1"><span class="num">01</span><span class="txt">One perceptron</span></a></li>
+  <li><a href="#s2"><span class="num">02</span><span class="txt">Why XOR fails</span></a></li>
+  <li><a href="#s3"><span class="num">03</span><span class="txt">Three neurons</span></a></li>
+  <li><a href="#s4"><span class="num">04</span><span class="txt">Training it</span></a></li>
+  <li><a href="#s5"><span class="num">05</span><span class="txt">Modern models</span></a></li>
+  <li><a href="#s6"><span class="num">06</span><span class="txt">One hidden layer</span></a></li>
+  <li><a href="#s7"><span class="num">07</span><span class="txt">What depth buys</span></a></li>
+  <li><a href="#s8"><span class="num">08</span><span class="txt">The short version</span></a></li>
+</ol>
+
+<main>
+<noscript><p class="noscript">The figures on this page need JavaScript. The text reads fine without it, but the charts, diagrams and experiments will stay blank.</p></noscript>
+<p class="lede">Four points on a grid. Two are positive, two are negative. No single straight line separates them.</p>
+
+<p>That's XOR. In 1969, Minsky and Papert wrote down the math behind limits like this one, and their book fed into a decline in neural network research.<sup><a href="#c4">4</a></sup> Yet a close cousin of that unit sits inside every large language model (LLM) today.</p>
+<p>This piece follows that unit from one neuron to a deep network,<sup><a href="#c13">13</a></sup> and asks what depth gives you that width doesn't. Depth means more layers. Width means more neurons per layer.</p>
+
+<div class="open-q short-answer"><span class="label-tag">The short answer</span>One neuron can only draw a straight line. Enough neurons in layers can draw almost any shape, and in theory one middle layer is already enough. What extra layers buy you is efficiency: some shapes need far fewer neurons when the network is deep. Whether training can find those deep solutions is less clear, and you can test it yourself near the end.</div>
+
+<p><b>Why care?</b> This unit is still the main building block of today's AI. GPT-3 has about 175 billion weights,<sup><a href="#c8">8</a></sup> and as a rough rule, writing each chunk of text takes about one multiply-and-add per weight. Knowing what one unit can and can't do explains why networks have layers at all, and why deeper ones won out.</p>
+
+<!-- ============================================================ -->
+<section id="s1">
+<p class="kicker">01</p>
+<h2>What does one perceptron do?</h2>
+
+<p>A perceptron makes a yes-or-no call from a few numbers. Say you're deciding whether to take an umbrella, based on two signals: is it cloudy, and does the forecast say rain? Each signal gets a <b>weight</b>, which says how much it counts. The perceptron multiplies each input by its weight, adds them up, then adds one more number, the <b>bias</b>, which sets how easily it says yes. If the total is above zero, it outputs 1 (yes). Otherwise, 0 (no).</p>
+<figure class="diagram" id="dia-perceptron">
+  <div class="fig-title">One perceptron, deciding about the umbrella</div>
+  <div class="net-wrap" data-net="perceptron"></div>
+  <figcaption>Each input is multiplied by its weight on the way in. The perceptron adds those up, adds the bias, and outputs 1 if the total is above zero. In code:</figcaption>
+  <pre style="margin:8px 0 0">y_hat = 1 if (w1*x1 + w2*x2 + ... + b) > 0 else 0</pre>
+</figure>
+<p>Frank Rosenblatt introduced it in 1958.<sup><a href="#c1">1</a></sup> A neural network is many of these units wired together in layers, each layer feeding the next.</p>
+<p>It helps to picture this as a line. With two inputs, every possible input is a point on a flat grid. The points where <code>w1*x1 + w2*x2 + b</code> is exactly zero form a straight line. On one side, the perceptron says 1. On the other, 0. With more inputs, the line becomes a flat sheet in more dimensions, called a <a class="term" href="https://en.wikipedia.org/wiki/Hyperplane" target="_blank" rel="noopener">hyperplane</a>. Either way, one perceptron makes one straight cut.</p>
+
+<h3>How does it learn?</h3>
+<p>It learns from labeled examples, shown one at a time:</p>
+<ul>
+  <li>If it gets the example right, change nothing.</li>
+  <li>If it says 0 when the label is 1, add the input to the weights and 1 to the bias.</li>
+  <li>If it says 1 when the label is 0, subtract the input from the weights and 1 from the bias.</li>
+</ul>
+<p>Each fix moves the line so that example is more likely to land on the right side. That's the whole method. One pass through all the examples is called an <b>epoch</b>.</p>
+<p>In 1962, Novikoff proved the rule always works on one condition: some straight line must split the two groups. If one exists, the rule finds one after a limited number of fixes.<sup><a href="#c2">2</a></sup></p>
+<p>When no such line exists, the proof promises nothing. You can see both cases below. On OR (1 if either input is 1), the rule settles. On XOR, it never does. The page remembers the weights at every step. If the same weights come back at the same example, the rule is in a loop it will repeat forever, and the page says so.</p>
+
+<figure id="fig-perceptron">
+  <div class="fig-title">Run the perceptron rule one example at a time</div>
+  <p class="howto">Plum shading: where the perceptron says 1. Red ring: a point on the wrong side. Dashed ring: the example the rule looks at next. Drag a point to move it, or click it to flip its label. With a keyboard: Tab to the chart, press N to pick a point, use the arrow keys to move it, and Enter to flip its label.</p>
+  <div class="key"><span><i class="sw c1"></i>Label 1</span><span><i class="sw c0"></i>Label 0</span><span><i class="sw mis"></i>Wrong side</span></div>
+  <div class="stage">
+    <canvas data-role="plane" role="img" aria-label="Input plane with four points and the perceptron's decision line"></canvas>
+    <div class="side">
+      <div class="group" role="group" aria-label="Dataset"><button data-preset="OR" aria-pressed="true">OR</button><button data-preset="XOR" aria-pressed="false">XOR</button></div>
+      <div class="controls">
+        <label>w1<input type="number" data-w="0" value="0" step="0.1"></label>
+        <label>w2<input type="number" data-w="1" value="0" step="0.1"></label>
+        <label>b<input type="number" data-w="2" value="0" step="0.1"></label>
+      </div>
+      <div class="controls">
+        <button data-act="step" class="primary">Step</button>
+        <button data-act="epoch">One epoch</button>
+        <button data-act="run">Play</button>
+        <button data-act="reset">Reset</button>
+      </div>
+      <p class="status" aria-live="polite"></p>
+      <ul class="log" aria-label="Update log"></ul>
+    </div>
+  </div>
+  <figcaption><details class="fine"><summary>How this works</summary>Each fix adds or subtracts the full input (a learning rate of 1). Examples are shown in a fixed order, #1 to #4. Points snap to a 0.05 grid. A loop is reported when the weights at an example match an earlier visit to that same example, with at least one fix in between. Play gives up after 1,000 epochs.</details></figcaption>
+</figure>
+<p class="bridge">So one neuron is one straight line. What happens when a straight line isn't enough?</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="s2">
+<p class="kicker">02</p>
+<h2>Why can't one neuron learn XOR?</h2>
+
+<p>XOR means "one or the other, but not both." Think of a hallway light with a switch at each end: flip either switch and the light changes. Its four cases are (0,0), (0,1), (1,0) and (1,1), with answers 0, 1, 1, 0. On a grid, the two 1s sit on one diagonal and the two 0s on the other.</p>
+<p>Try to draw one straight line with both 1s on one side and both 0s on the other. You can't. Any line that catches both 1s also catches at least one 0.</p>
+<p>So the learning rule never settles on XOR. The rule isn't broken: there's no right answer to find. The data is not <a class="term" href="https://en.wikipedia.org/wiki/Linear_separability" target="_blank" rel="noopener">linearly separable</a>, meaning no straight line splits it.</p>
+<p>Minsky and Papert's 1969 book <i>Perceptrons</i> worked out the math of limits like this one.<sup><a href="#c4">4</a></sup> XOR is the tidy example, but the limit is real. Real datasets can fail the straight-line test too, and then a single unit can't sort them perfectly, however long it trains.</p>
+<p>Try it below: a line can split AND and OR, but not XOR. The Rings preset is closer to real data, with one group sitting inside the other, like health readings that are fine near normal and worrying once they drift too far in any direction. No line splits that either.</p>
+
+<figure id="fig-separable">
+  <div class="fig-title">Try to split each dataset with one line</div>
+  <p class="howto">Higher is better. "Best any line can do" checks every way a straight line can split these points. If it falls short of all of them, no slider setting will work. You can drag points here too, or move them with the keyboard as above.</p>
+  <div class="key"><span><i class="sw c1"></i>Label 1</span><span><i class="sw c0"></i>Label 0</span><span><i class="sw mis"></i>Wrong side</span></div>
+  <div class="stage">
+    <canvas data-role="plane" role="img" aria-label="Input plane with a dataset and an adjustable line"></canvas>
+    <div class="side">
+      <div class="group" role="group" aria-label="Dataset"><button data-preset="AND">AND</button><button data-preset="OR" aria-pressed="true">OR</button><button data-preset="XOR">XOR</button><button data-preset="rings">Rings</button><button data-preset="random">Random</button></div>
+      <div class="controls stack">
+        <label><span>w1 <b data-out="0"></b></span><input type="range" data-w="0" min="-4" max="4" step="0.05" value="1"></label>
+        <label><span>w2 <b data-out="1"></b></span><input type="range" data-w="1" min="-4" max="4" step="0.05" value="1"></label>
+        <label><span>b <b data-out="2"></b></span><input type="range" data-w="2" min="-4" max="4" step="0.05" value="-0.5"></label>
+      </div>
+      <div class="cells" aria-live="polite"></div>
+      <div class="controls"><button data-act="best">Show the best line</button><button data-act="resample">New random sample</button></div>
+    </div>
+  </div>
+  <figcaption><details class="fine"><summary>How this works</summary>Rings: 10 points within 0.2 of the center, and 20 points spaced around a ring 0.34 to 0.44 from it, jittered from a fixed seed. Random: 24 points spread evenly at random over the square and labeled by a random line, leaving out points within 0.05 of it. The seed is shown so a sample can be repeated. Dragging points can make the data impossible to split.</details></figcaption>
+</figure>
+<p class="bridge">If one line can't do it, what about two?</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="s3">
+<p class="kicker">03</p>
+<h2>How do three neurons solve it?</h2>
+
+<p>The fix was known early: one neuron gives one line, so use several and combine their lines. For XOR, three are enough. Two sit in a <b>hidden layer</b>, between the inputs and the output. All three use the same yes-or-no step rule:</p>
+<ul>
+  <li>Hidden neuron 1 computes OR: <code>step(x1 + x2 - 0.5)</code></li>
+  <li>Hidden neuron 2 computes NAND: <code>step(-x1 - x2 + 1.5)</code></li>
+  <li>The output neuron computes AND of the two: <code>step(h1 + h2 - 1.5)</code></li>
+</ul>
+<p>The first hidden neuron fires if at least one input is on. The second fires unless both are on. The output fires only when both hidden neurons fire. That leaves exactly the two cases where one input is on.</p>
+<p>On the grid, each hidden neuron draws a line, and the output keeps the strip between them.</p>
+<p>The right-hand panel shows a second view. The hidden layer moves each input to a new spot, (h1, h2). There, (0,1) and (1,0) both land on (1,1), and now one straight line does split the groups. The output neuron is an ordinary perceptron drawing that line.</p>
+
+<figure id="fig-network">
+  <div class="fig-title">Edit the three neurons and check the truth table</div>
+  <p class="howto">Top: the network itself. Each edge carries a weight, plum if positive and ochre if negative, thicker when larger. Below it, left: the inputs, shaded where the network says 1, with one line per hidden neuron. Right: the same points after the hidden layer, with the output neuron's line. A table row turns red when the network gets XOR wrong.</p>
+  <p class="sub" data-role="net-caption" style="font:15px/1.45 var(--serif);color:var(--ink);margin:0"></p>
+  <div class="net-wrap" data-role="net"></div>
+  <div class="key"><span><i class="sw c1"></i>XOR = 1</span><span><i class="sw c0"></i>XOR = 0</span><span><i class="sw mis"></i>Network is wrong</span></div>
+  <div class="two">
+    <div><p class="sub">Input plane (x1, x2)</p><canvas data-role="input" role="img" aria-label="Input plane with the two hidden neuron lines"></canvas></div>
+    <div><p class="sub">Hidden plane (h1, h2)</p><canvas data-role="hidden" role="img" aria-label="Hidden plane with the output neuron line"></canvas></div>
+  </div>
+  <p class="status" data-role="verdict" aria-live="polite"></p>
+  <div class="neuron-rows">
+    <div class="controls"><span class="row-name">Hidden neuron 1</span><label>x1 weight<input type="number" data-w="0" step="0.1"></label><label>x2 weight<input type="number" data-w="1" step="0.1"></label><label>bias<input type="number" data-w="2" step="0.1"></label></div>
+    <div class="controls"><span class="row-name">Hidden neuron 2</span><label>x1 weight<input type="number" data-w="3" step="0.1"></label><label>x2 weight<input type="number" data-w="4" step="0.1"></label><label>bias<input type="number" data-w="5" step="0.1"></label></div>
+    <div class="controls"><span class="row-name">Output neuron</span><label>h1 weight<input type="number" data-w="6" step="0.1"></label><label>h2 weight<input type="number" data-w="7" step="0.1"></label><label>bias<input type="number" data-w="8" step="0.1"></label></div>
+  </div>
+  <div class="controls">
+    <button data-act="scramble">Scramble the weights</button>
+    <button data-act="reset" class="primary">Reset to OR, NAND, AND</button>
+  </div>
+  <div class="table-wrap"><table class="pick"><thead><tr><th>x1</th><th>x2</th><th>h1</th><th>h2</th><th>Output</th><th>XOR</th><th>Match</th></tr></thead><tbody></tbody></table></div>
+  <figcaption>Every neuron uses step(z) = 1 if z > 0, else 0. When two inputs land on the same hidden point, it's marked with a count. If a 1 and a 0 land on the same point, they're drawn side by side: no output line can split them, so the hidden layer has to change.</figcaption>
+</figure>
+<p class="bridge">That works when you pick the weights yourself. The hard part was getting a network to find them on its own.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="s4">
+<p class="kicker">04</p>
+<h2>Why was a network like this so hard to train?</h2>
+
+<p>Picking weights by hand works for XOR. Real problems need the weights learned from data, and the perceptron rule can't do that for hidden neurons. It fixes weights based on the output's mistake. A hidden neuron's effect on the output passes through other neurons, so the rule can't tell how much of the blame is its own.</p>
+<p>Widrow and Hoff got part of the way in 1959.<sup><a href="#c3">3</a></sup> They scored the error as a number, the squared gap between output and target, and nudged the weights in whichever direction shrinks it fastest. That direction is the <b>gradient</b>. Following it step by step, like walking downhill on the error, is called <b>gradient descent</b>. Bigger mistakes mean bigger steps. Their method, <a class="term" href="https://en.wikipedia.org/wiki/Least_mean_squares_filter" target="_blank" rel="noopener">least mean squares</a> (LMS), works for one neuron.</p>
+<p>With two layers, it breaks. To get the gradient for a hidden weight, you use the <a class="term" href="https://en.wikipedia.org/wiki/Chain_rule" target="_blank" rel="noopener">chain rule</a>: multiply the slopes along the path from that weight to the output. A step function is flat everywhere except at its jump, so its slope is zero (and has no value at the jump). One zero in the product makes the whole gradient zero. The error surface is flat ground and sudden cliffs, with no downhill to follow.</p>
+<p>The fix was small: swap the step for a smooth S-shaped curve, the sigmoid, which has a slope everywhere. Now the chain rule reaches every layer, and you get backpropagation, which passes blame backward from the output to every weight.</p>
+
+<figure class="diagram" id="dia-backprop">
+  <div class="fig-title">Values go forward, blame comes back</div>
+  <div class="net-wrap" data-net="backprop"></div>
+  <figcaption>On the way back, each edge multiplies the blame by its weight, and each neuron multiplies it by its slope. With step activations every slope is 0, so the blame is already zero when it leaves the output neuron, and no weight has anything to learn from.</figcaption>
+</figure>
+<p>Rumelhart, Hinton and Williams published it in 1986<sup><a href="#c5">5</a></sup> and called it the generalized delta rule, an extension of Widrow and Hoff's delta rule.<sup><a href="#c6">6</a></sup> The idea is older, going back at least to Werbos's 1974 thesis.<sup><a href="#c7">7</a></sup></p>
+<p>Below, the XOR network trains from random starting weights. Pick step to see the problem: the gradient is worked out exactly, comes out zero, and the weights never move.</p>
+
+<figure id="fig-train">
+  <div class="fig-title">Train a small network on XOR</div>
+  <p class="howto">Loss is the error score: lower is better. The activation is the function each neuron applies to its total: sigmoid and tanh are smooth S-curves, and ReLU is max(0, z). The learning rate sets the size of each downhill step. The seed picks the random starting weights. In the gradient chart each grid line is 10 times the one below it, and exactly zero sits on the bottom line marked 0. Shading shows the network's answer, plum near 1 and ochre near 0, with a line where it crosses 0.5.</p>
+  <div class="key"><span><i class="sw c1"></i>XOR = 1</span><span><i class="sw c0"></i>XOR = 0</span><span><i class="sw mis"></i>Wrong side</span><span><i class="sw line" style="background:var(--plum)"></i>Hidden layer gradient</span><span><i class="sw line" style="background:var(--ochre)"></i>Output layer gradient</span></div>
+  <div class="two">
+    <div><p class="sub">What the network answers</p><canvas data-role="plane" role="img" aria-label="Network output on the input plane"></canvas></div>
+    <div><p class="sub">Loss by epoch</p><canvas data-role="loss" role="img" aria-label="Loss curve"></canvas>
+      <p class="sub" style="margin-top:8px">Gradient size per layer</p><canvas data-role="grad" role="img" aria-label="Gradient size per layer"></canvas></div>
+  </div>
+  <div class="controls">
+    <label>Activation<select data-k="act"><option value="step">step</option><option value="sigmoid" selected>sigmoid</option><option value="tanh">tanh</option><option value="relu">ReLU</option></select></label>
+    <label>Hidden units<input type="number" data-k="H" value="2" min="1" max="8" step="1"></label>
+    <label>Learning rate<input type="number" data-k="lr" value="1" min="0.001" step="0.1"></label>
+    <label>Epochs<input type="number" data-k="epochs" value="3000" min="1" max="20000" step="100"></label>
+    <label>Seed<input type="number" data-k="seed" value="1" min="1" step="1"></label>
+  </div>
+  <div class="controls">
+    <button data-act="train" class="primary">Train</button>
+    <button data-act="reset">Reset</button>
+    <button data-act="seeds">Try 100 random starts</button>
+  </div>
+  <div class="cells" data-role="now" aria-live="polite"></div>
+  <details class="settings"><summary>Exact settings</summary><div data-role="now-settings"></div></details>
+  <div class="readout" data-role="seeds" aria-live="polite">Not run yet. This trains the same network from 100 different random starts and counts how many solve XOR.</div>
+  <div class="seedgrid" data-role="grid" aria-label="One square per seed. Click one to load it."></div>
+  <figcaption><details class="fine"><summary>How this works</summary>With step selected, the output neuron is a step too, so every neuron is a perceptron. Otherwise the output is a sigmoid. Gradients come from exact backpropagation, checked against a slower brute-force method in the test suite. The step's slope is taken as 0 everywhere, including the jump, where it has no value.</details></figcaption>
+</figure>
+<p class="bridge">That small fix still sits at the heart of today's biggest models.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="s5">
+<p class="kicker">05</p>
+<h2>Is this still how modern models work?</h2>
+<p>Yes, only far bigger. GPT-3 has 96 layers. Each has an attention block, which lets each word draw on the words before it, and an MLP block.<sup><a href="#c8">8</a></sup> The MLP block is a two-layer perceptron network with 49,152 hidden units and 12,288 outputs. Our XOR network has three neurons.</p>
+
+<figure class="diagram" id="dia-gpt3">
+  <div class="fig-title">One GPT-3 layer, with its MLP drawn to scale</div>
+  <div class="net-wrap" data-net="gpt3"></div>
+  <figcaption>Bar heights match the number of units: the hidden layer is four times as wide as the input and output. GPT-3 stacks 96 of these layers. Sizes from Brown et al., Table 2.1 and Section 2.1.<sup><a href="#c8">8</a></sup></figcaption>
+</figure>
+<p>Modern models use smoother activations, such as GELU or ReLU, instead of a step. The recipe hasn't changed: weighted sums, a bend, repeat.</p>
+<p class="bridge">So networks grew by stacking layers. But did they have to?</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="s6">
+<p class="kicker">06</p>
+<h2>Is one hidden layer enough?</h2>
+<p>If you can stack perceptrons, how many layers do you need?</p>
+<p>In 1989, Cybenko proved that one is enough, in principle.<sup><a href="#c9">9</a></sup> A network with a single hidden layer of sigmoid units can match any continuous curve (one with no jumps) on a <a class="term" href="https://en.wikipedia.org/wiki/Compact_space" target="_blank" rel="noopener">compact</a> domain (think of a closed range like 0 to 1) as closely as you like. In 1991, Hornik showed the same holds for many other activations.<sup><a href="#c10">10</a></sup> This is the universal approximation theorem. Taken at its word, it says you never need depth.</p>
+
+<h3>What doesn't the theorem tell you?</h3>
+<p>It says good weights exist. It says nothing about two practical questions:</p>
+<ol>
+  <li><b>How many neurons?</b> The hidden layer may need to be huge. For some functions with many inputs, far bigger than anything you could build.</li>
+  <li><b>Can you find the weights?</b> Knowing they exist doesn't mean gradient descent will reach them.</li>
+</ol>
+<p>The figure pulls those two apart. <b>Build by hand</b> sets up a one-hidden-layer network from n units, with no training. <b>Learn</b> gives the same network random weights and trains it with gradient descent. If Learn does worse with the same number of units, the network could have done it; training didn't find the way.</p>
+
+<figure id="fig-uat">
+  <div class="fig-title">Build the fit by hand, or let the network learn it</div>
+  <p class="howto">Gray is the target curve, plum is the network. MSE is the average squared gap between them: lower is better. Dots mark where the hand-built network is sure to touch the target.</p>
+  <div class="controls">
+    <div class="group" role="group" aria-label="Mode"><button data-mode="construct" aria-pressed="true">Build by hand</button><button data-mode="train" aria-pressed="false">Learn</button></div>
+  </div>
+  <canvas data-role="plot" role="img" aria-label="Target curve and network fit on [0, 1]"></canvas>
+  <div class="controls">
+    <label>Target<select data-k="target"><option value="sine">wave</option><option value="sawtooth">zigzag, 3 teeth</option><option value="step">step</option><option value="draw">draw your own</option></select></label>
+    <label>Hidden units <span data-out="n"></span><input type="range" data-k="n" min="1" max="64" step="1" value="6"></label>
+  </div>
+  <div class="controls" data-role="train-controls">
+    <label>Activation<select data-k="act"><option value="relu">ReLU</option><option value="tanh">tanh</option><option value="sigmoid">sigmoid</option></select></label>
+    <label>Learning rate<input type="number" data-k="lr" value="0.01" min="0.0001" step="0.001"></label>
+    <label>Epochs<input type="number" data-k="epochs" value="3000" min="1" max="50000" step="500"></label>
+    <label>Seed<input type="number" data-k="seed" value="1" min="1" step="1"></label>
+    <button data-act="train" class="primary">Train</button>
+  </div>
+  <p class="status" data-role="hint"></p>
+  <div class="readout" aria-live="polite"><div data-role="uat-main"></div><details class="settings" data-role="uat-set" hidden><summary>Exact settings</summary><div data-role="uat-set-text"></div></details></div>
+  <figcaption><details class="fine"><summary>How this works</summary>Build by hand: unit i computes relu(x − i/n), and its output weight is how much the slope changes at the point i/n, so the network joins the target's values at those n + 1 points with straight lines. Learn: 200 evenly spaced training points, trained with Adam (a popular variant of gradient descent that adjusts the step size for each weight) on all points at once, from PyTorch-default starting weights. Both MSEs are measured on 1,001 evenly spaced points from 0 to 1. The step target has a jump, so the theorem doesn't cover it.</details></figcaption>
+</figure>
+<p class="bridge">If one layer is enough in theory, why go deep?</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="s7">
+<p class="kicker">07</p>
+<h2>So what does depth buy you?</h2>
+<p>Two papers from 2016 put numbers on it. In plain terms:</p>
+<ul>
+  <li><b>Eldan and Shamir</b> found a shape, rings spreading out from a center like ripples on a pond, that a small network with three layers can draw. A network with two layers can't get close unless it is enormous, and the size it needs grows exponentially as you add input dimensions.<sup><a href="#c11">11</a></sup></li>
+  <li><b>Telgarsky</b> stacked a simple zigzag piece many times. Each new layer roughly doubles the number of zigzags. A network with far fewer layers can only copy the result if it has a huge number of neurons. Stacking multiplies. Widening only adds.<sup><a href="#c12">12</a></sup></li>
+</ul>
+<details class="fine aside-fine"><summary>The exact statements</summary>
+<p><b>Eldan and Shamir (2016):</b> there is a simple, roughly radial function on ℝ<sup>d</sup> that a small three-layer network can express. No two-layer network approximates it beyond a constant accuracy unless its width is exponential in d.</p>
+<p><b>Telgarsky (2016):</b> for every positive integer k, some networks with Θ(k³) layers and Θ(1) nodes per layer can't be approximated by networks with O(k) layers unless those have Ω(2<sup>k</sup>) nodes. It holds for ReLU and several other unit types.</p>
+</details>
+<p class="aside"><span class="label-tag">Intuition</span>Why would depth help? The usual answer is reuse. Each layer builds on the patterns the layer before it found, the way words build on letters. A shallow network has to build every pattern straight from the raw input. This is a way to think about the theorems, not something they prove.</p>
+
+<h3>Can you see it in a small example?</h3>
+<p><span class="label-tag">My construction</span>This example is my own, not from those papers. It uses ReLU, a common activation that outputs max(0, z): it passes positive numbers through and turns negative ones into 0. A "tent" made of two ReLU units, <code>tent(x) = 2·relu(x) − 4·relu(x − ½)</code>, folds the range 0 to 1 in half like a sheet of paper. Feed the result into a second tent and each half folds again.</p>
+<p>Each block doubles the straight pieces, so k blocks use 2k units and make 2<sup>k</sup> pieces. One hidden layer of n ReLU units can make at most n + 1 pieces on a single input, since each unit adds at most one bend. Slide k to compare.</p>
+
+<figure id="fig-tent">
+  <div class="fig-title">Stack folds and count the straight pieces</div>
+  <p class="howto">More pieces from the same number of units means more shapes per unit. Both counts are exact: the stacked count tracks every bend through each layer.</p>
+  <canvas data-role="plot" role="img" aria-label="Stacked tent function on [0, 1]"></canvas>
+  <div class="controls"><label>Tent blocks k <span data-out="k"></span><input type="range" data-k="k" min="1" max="10" step="1" value="3"></label></div>
+  <div class="cells" aria-live="polite"></div>
+  <div class="table-wrap"><table><thead><tr><th>Blocks k</th><th>ReLU units</th><th>Pieces, stacked (counted)</th><th>Most pieces, one hidden layer with the same units</th></tr></thead><tbody></tbody></table></div>
+  <figcaption><details class="fine"><summary>How this works</summary>The one-hidden-layer column is an upper limit, n + 1 for n units, not a trained network. Stacking k blocks gives exactly the zigzag with 2<sup>k−1</sup> teeth, which the test suite checks for k up to 12.</details></figcaption>
+</figure>
+
+<h3>But can training find the zigzag?</h3>
+<p>A network being able to draw a zigzag is one thing. Gradient descent finding it from a random start is another.</p>
+<p>Below, two networks of about the same size, counted in parameters (weights and biases), learn the same zigzag from random starting weights. One is shallow and wide, the other deep and narrow. Watch each guess change as it trains. The deep one may fail to find the zigzag, and that would count as a result too.</p>
+
+<figure id="fig-exp">
+  <div class="fig-title">Two networks, same size, same zigzag</div>
+  <p class="howto">Gray is the target. Each colored curve is that network's current guess. MSE is the error, so lower is better. Pick how many teeth the zigzag has, or replay the run.</p>
+  <div class="controls">
+    <div class="group" role="group" aria-label="Teeth"><button data-teeth="2">2 teeth</button><button data-teeth="4" aria-pressed="true">4 teeth</button><button data-teeth="8">8 teeth</button></div>
+    <button data-act="replay" class="primary">Replay</button>
+  </div>
+  <div class="two">
+    <div><p class="sub" data-role="demo-label-shallow"></p><div class="net-wrap" data-role="arch-shallow"></div><canvas data-role="demo-shallow" role="img" aria-label="Shallow network's fit to the zigzag"></canvas></div>
+    <div><p class="sub" data-role="demo-label-deep"></p><div class="net-wrap" data-role="arch-deep"></div><canvas data-role="demo-deep" role="img" aria-label="Deep network's fit to the zigzag"></canvas></div>
+  </div>
+  <div class="cells" data-role="demo-cells" aria-live="polite"></div>
+  <details class="settings"><summary>Exact settings</summary><div data-role="demo-settings"></div></details>
+
+  <details class="advanced">
+  <summary>Run the full experiment: more random starts, your own settings, export</summary>
+  <p class="howto" style="margin-top:12px">Lower MSE is better. Held-out MSE is measured on points the network never trained on. Each thin line is one seed, meaning one random start. Everything runs in your browser, so the numbers are fresh measurements, not stored results.</p>
+  <div class="controls">
+    <label>Teeth<input type="number" data-k="teeth" value="4" min="1" max="32" step="1"></label>
+    <label>Parameter budget<input type="number" data-k="budget" value="400" min="20" max="5000" step="10"></label>
+    <label>Deep: hidden layers<input type="number" data-k="depth" value="6" min="2" max="16" step="1"></label>
+    <label>Activation<select data-k="act"><option value="relu">ReLU</option><option value="tanh">tanh</option><option value="sigmoid">sigmoid</option></select></label>
+    <label>Optimizer<select data-k="opt"><option value="adam">Adam</option><option value="gd">gradient descent</option></select></label>
+    <label>Learning rate<input type="number" data-k="lr" value="0.01" min="0.00001" step="0.001"></label>
+    <label>Epochs<input type="number" data-k="epochs" value="2000" min="10" max="50000" step="100"></label>
+    <label>Seeds<input type="number" data-k="seeds" value="5" min="1" max="50" step="1"></label>
+  </div>
+  <div class="readout" data-role="arch"></div>
+  <div class="controls">
+    <button data-act="run" class="primary">Run experiment</button>
+    <button data-act="cancel" disabled>Cancel</button>
+    <button data-act="json" disabled>Export JSON</button>
+    <button data-act="csv" disabled>Export CSV</button>
+  </div>
+  <div class="progress"><div></div></div>
+  <div class="readout" data-role="results" aria-live="polite">Not run yet. Results appear here with the exact settings they came from.</div>
+  <div class="key"><span><i class="sw line" style="background:var(--gray)"></i>Target</span><span><i class="sw line" style="background:var(--ochre)"></i>Shallow, one line per seed</span><span><i class="sw line" style="background:var(--plum)"></i>Deep, one line per seed</span></div>
+  <div class="two">
+    <div><p class="sub">Shallow fits</p><canvas data-role="fit-shallow" role="img" aria-label="Shallow network fits"></canvas></div>
+    <div><p class="sub">Deep fits</p><canvas data-role="fit-deep" role="img" aria-label="Deep network fits"></canvas></div>
+  </div>
+  <p class="sub mono" style="margin:10px 0 4px;color:var(--muted)">Training loss (MSE) by epoch; each grid line is 10 times the one below</p>
+  <canvas data-role="curves" role="img" aria-label="Training loss curves for every seed"></canvas>
+  </details>
+  <figcaption><details class="fine"><summary>How this works</summary>Target f(x) = 1 − |2·frac(Tx) − 1| with T teeth. 256 training points and 1,000 held-out points, both spread at random over 0 to 1 using fixed data seeds. Full-batch training on MSE, PyTorch-default starting weights. The animation uses one random start (seed 1); the full experiment runs seeds 1 to N for both networks. Each width is the whole number whose parameter count is closest to the budget, so the two counts differ slightly, and both are shown.</details></figcaption>
+</figure>
+
+<!-- TODO(Fahim): fill in your results, then delete the "hidden" attribute so the block shows on the page.
+     Quote numbers from the exported JSON/CSV, with their settings. -->
+<div class="found" id="what-i-found" hidden>
+  <h3>What I found</h3>
+  <p class="empty">[Empty. The author will fill this in after running the experiment.]</p>
+</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="s8">
+<p class="kicker">08</p>
+<h2>The short version</h2>
+<p>The universal approximation theorem answers whether a network can draw a shape. Depth is about how cheaply it can, and whether training finds the weights. The first question has a simple answer; the second is where most of the interesting work in deep learning happens.</p>
+<div class="open-q"><span class="label-tag">Open question</span>Starting from random weights, does a deep network learn to build the zigzag fold by fold, or does training get stuck?</div>
+<h3>What can't these demos tell you?</h3>
+<p>Everything here uses tiny networks trained in your browser on one or two inputs. They show how the pieces work, not how they behave at scale. Each experiment uses only a few random starts, so a gap between two settings can be luck. That's why the full experiment shows the lowest and highest result next to the average.</p>
+</section>
+</main>
+
+<footer>
+<div class="foot">
+  <h2>Sources</h2>
+  <ol>
+    <li id="c1">Rosenblatt, F. (1958). The perceptron: a probabilistic model for information storage and organization in the brain. <i>Psychological Review</i>, 65(6), 386–408. <a href="https://doi.org/10.1037/h0042519" target="_blank" rel="noopener">doi:10.1037/h0042519</a></li>
+    <li id="c2">Novikoff, A. B. J. (1962). On convergence proofs on perceptrons. <i>Proceedings of the Symposium on the Mathematical Theory of Automata</i>, Vol. 12, 615–622. Polytechnic Institute of Brooklyn. Technical report version: <a href="https://apps.dtic.mil/sti/citations/AD0298258" target="_blank" rel="noopener">DTIC AD0298258</a> <span class="unverified">[link not verified: DTIC was down for maintenance each time it was checked]</span></li>
+    <li id="c3">Widrow, B. and Hoff, M. E. (1960). Adaptive switching circuits. <i>IRE WESCON Convention Record</i>, Part 4, 96–104. <a href="https://www-isl.stanford.edu/~widrow/papers/c1960adaptiveswitching.pdf" target="_blank" rel="noopener">Scan hosted by Widrow's Stanford lab</a>. The work dates from 1959; the paper was published in 1960.</li>
+    <li id="c4">Minsky, M. and Papert, S. (1969). <i>Perceptrons: An Introduction to Computational Geometry</i>. MIT Press. <a href="https://mitpress.mit.edu/9780262630221/perceptrons/" target="_blank" rel="noopener">Publisher's page</a></li>
+    <li id="c5">Rumelhart, D. E., Hinton, G. E., and Williams, R. J. (1986). Learning representations by back-propagating errors. <i>Nature</i>, 323, 533–536. <a href="https://doi.org/10.1038/323533a0" target="_blank" rel="noopener">doi:10.1038/323533a0</a></li>
+    <li id="c6">Rumelhart, D. E., Hinton, G. E., and Williams, R. J. (1986). Learning internal representations by error propagation. In Rumelhart, D. E. and McClelland, J. L. (eds.), <i>Parallel Distributed Processing</i>, Vol. 1, 318–362. MIT Press. Where the method is presented as the generalized delta rule. Reprinted in Anderson, J. A. and Rosenfeld, E. (eds.), <i>Neurocomputing</i>, Vol. 1 (1988), MIT Press: <a href="https://doi.org/10.7551/mitpress/4943.003.0128" target="_blank" rel="noopener">doi:10.7551/mitpress/4943.003.0128</a></li>
+    <li id="c7">Werbos, P. J. (1974). <i>Beyond Regression: New Tools for Prediction and Analysis in the Behavioral Sciences</i>. PhD thesis, Harvard University. Full text reprinted in Werbos, P. J. (1994), <i>The Roots of Backpropagation</i>, Wiley: <a href="https://www.wiley-vch.de/en/areas-interest/engineering/the-roots-of-backpropagation-978-0-471-59897-8" target="_blank" rel="noopener">publisher's page</a></li>
+    <li id="c8">Brown, T. et al. (2020). Language models are few-shot learners. <i>Advances in Neural Information Processing Systems 33</i>. <a href="https://proceedings.neurips.cc/paper/2020/hash/1457c0d6bfcb4967418bfb8ac142f64a-Abstract.html" target="_blank" rel="noopener">NeurIPS proceedings</a>. Table 2.1 gives 96 layers and d<sub>model</sub> = 12,288 for the 175B model; Section 2.1 states d<sub>ff</sub> = 4 × d<sub>model</sub>, which is 49,152.</li>
+    <li id="c9">Cybenko, G. (1989). Approximation by superpositions of a sigmoidal function. <i>Mathematics of Control, Signals and Systems</i>, 2(4), 303–314. <a href="https://doi.org/10.1007/BF02551274" target="_blank" rel="noopener">doi:10.1007/BF02551274</a></li>
+    <li id="c10">Hornik, K. (1991). Approximation capabilities of multilayer feedforward networks. <i>Neural Networks</i>, 4(2), 251–257. <a href="https://doi.org/10.1016/0893-6080(91)90009-T" target="_blank" rel="noopener">doi:10.1016/0893-6080(91)90009-T</a></li>
+    <li id="c11">Eldan, R. and Shamir, O. (2016). The power of depth for feedforward neural networks. <i>Proceedings of the 29th Conference on Learning Theory</i>, PMLR 49, 907–940. <a href="https://proceedings.mlr.press/v49/eldan16.html" target="_blank" rel="noopener">PMLR</a></li>
+    <li id="c12">Telgarsky, M. (2016). Benefits of depth in neural networks. <i>Proceedings of the 29th Conference on Learning Theory</i>, PMLR 49, 1517–1539. <a href="https://proceedings.mlr.press/v49/telgarsky16.html" target="_blank" rel="noopener">PMLR</a></li>
+    <li id="c13">Welch Labs (2025, January 31). ChatGPT is made from 100 million of these [The Perceptron]. <a href="https://www.youtube.com/watch?v=l-9ALe3U-Fg" target="_blank" rel="noopener">YouTube</a>. The historical arc of this piece follows this video.</li>
+  </ol>
+
+  <h2>How the numbers are computed</h2>
+  <ol>
+    <li>Every number in the figures is computed live in your browser, in double-precision JavaScript. Nothing is precomputed or stored. Constants in the text and diagrams (dates, GPT-3 sizes) come from the sources above.</li>
+    <li>Randomness comes from a seeded generator (mulberry32), so the same seed and settings give the same result on any machine. Weights and biases start from U(−1/√fan_in, 1/√fan_in), the PyTorch <code>nn.Linear</code> default. Training is full batch, the loss is mean squared error, and Adam uses β = (0.9, 0.999) and ε = 10<sup>−8</sup>.</li>
+    <li>Gradients are exact backpropagation. A test suite checks them against finite differences, checks that a step network's gradients are exactly zero, that k stacked tent blocks give 2<sup>k</sup> pieces, that the construct mode passes through every knot, and that the perceptron converges on OR and cycles on XOR.</li>
+    <li>The "best any line can do" readout is exact: it tries one direction between each pair of critical angles and every threshold along it. The tent-block piece counts track breakpoints exactly through each ReLU rather than sampling.</li>
+  </ol>
+
+  <hr class="foot-rule">
+  <p class="repo">Source code, tests and build script: <a href="https://github.com/f-a-tonmoy/nn-explainer" target="_blank" rel="noopener">github.com/f-a-tonmoy/nn-explainer</a></p>
+</div>
+</footer>
+
+<button class="to-top" type="button" aria-label="Back to top">↑ Top</button>
+
+<script id="nn-src">
+// Pure math for every interactive. No DOM, so Node tests and the Web Worker load the same file.
+(function (root) {
+  const NN = {};
+
+  // mulberry32: small seeded PRNG so every run is reproducible from its seed
+  NN.rng = seed => {
+    let a = seed >>> 0;
+    return () => {
+      a = (a + 0x6D2B79F5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  };
+
+  /* ---------- single perceptron ---------- */
+
+  NN.predict = (w, b, x) => (w[0] * x[0] + w[1] * x[1] + b > 0 ? 1 : 0);
+  // Inputs live on a 0.05 grid, so exact weight states are reachable; rounding removes float drift.
+  const snap = v => Math.round(v * 1e9) / 1e9;
+
+  // Rosenblatt's rule, one example per step, examples in dataset order.
+  NN.perceptron = (data, w0, b0) => {
+    const s = {
+      w: [w0[0], w0[1]], b: b0, i: 0, epoch: 1, updates: 0, epochMistakes: 0,
+      status: 'running', cycle: null, seen: new Map(), last: null,
+    };
+    s.step = () => {
+      if (s.status !== 'running' || !data.length) return s;
+      const key = `${s.i}|${s.w[0]}|${s.w[1]}|${s.b}`;
+      const prev = s.seen.get(key);
+      if (prev) {
+        // Same weights at the same example: if nothing changed in between, every example was
+        // classified correctly for a full pass, so it has converged. Otherwise it is a cycle.
+        if (prev.updates === s.updates) { s.status = 'converged'; return s; }
+        s.status = 'cycle';
+        s.cycle = { example: s.i, firstEpoch: prev.epoch, againEpoch: s.epoch, length: s.updates - prev.updates, w: [...s.w], b: s.b };
+        return s;
+      }
+      s.seen.set(key, { epoch: s.epoch, updates: s.updates });
+      const p = data[s.i], yhat = NN.predict(s.w, s.b, [p.x, p.y]);
+      const sign = p.label - yhat; // +1: add input, -1: subtract input, 0: do nothing
+      if (sign) {
+        s.w = [snap(s.w[0] + sign * p.x), snap(s.w[1] + sign * p.y)];
+        s.b = snap(s.b + sign);
+        s.updates++; s.epochMistakes++;
+      }
+      s.last = { i: s.i, epoch: s.epoch, yhat, label: p.label, sign, w: [...s.w], b: s.b };
+      s.i++;
+      if (s.i === data.length) {
+        if (s.epochMistakes === 0) s.status = 'converged';
+        s.i = 0; s.epoch++; s.epochMistakes = 0;
+      }
+      return s;
+    };
+    return s;
+  };
+
+  NN.accuracy = (w, b, pts) => pts.filter(p => NN.predict(w, b, [p.x, p.y]) === p.label).length;
+
+  // Best accuracy any single line achieves. The order of projections onto a direction only changes
+  // at directions perpendicular to some p_i - p_j, so one direction inside each arc between those
+  // critical angles, swept over every threshold, covers every linear split.
+  // Returns the count and one line (w, b) that achieves it.
+  NN.bestLine = pts => {
+    const n = pts.length;
+    if (!n) return { correct: 0, w: [1, 0], b: 0 };
+    const crit = [0];
+    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+      const dx = pts[j].x - pts[i].x, dy = pts[j].y - pts[i].y;
+      if (!dx && !dy) continue;
+      const a = Math.atan2(dy, dx) + Math.PI / 2;
+      for (const t of [a, a + Math.PI]) crit.push(((t % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI));
+    }
+    crit.sort((a, b) => a - b);
+    crit.push(crit[0] + 2 * Math.PI);
+    let best = { correct: -1 };
+    const keep = (correct, c, s, thr) => { if (correct > best.correct) best = { correct, w: [c, s], b: -thr }; };
+    for (let k = 0; k + 1 < crit.length; k++) {
+      if (crit[k + 1] - crit[k] < 1e-12) continue;
+      const t = (crit[k] + crit[k + 1]) / 2, c = Math.cos(t), s = Math.sin(t);
+      const pr = pts.map(p => ({ v: p.x * c + p.y * s, l: p.label })).sort((a, b) => a.v - b.v);
+      // threshold below pr[0]: every point predicted 1; after step m, points 0..m are predicted 0
+      let correct = pr.filter(p => p.l === 1).length;
+      keep(correct, c, s, pr[0].v - 1);
+      for (let m = 0; m < n; m++) {
+        correct += pr[m].l === 0 ? 1 : -1;
+        if (m + 1 === n) keep(correct, c, s, pr[m].v + 1);
+        else if (pr[m + 1].v > pr[m].v) keep(correct, c, s, (pr[m].v + pr[m + 1].v) / 2);
+      }
+    }
+    return best;
+  };
+  NN.bestLinear = pts => NN.bestLine(pts).correct;
+
+  /* ---------- multilayer perceptron ---------- */
+
+  NN.acts = {
+    // Step's slope is zero everywhere it is defined; we use 0 at the threshold too.
+    step: { f: z => (z > 0 ? 1 : 0), d: () => 0 },
+    sigmoid: { f: z => 1 / (1 + Math.exp(-z)), d: (z, a) => a * (1 - a) },
+    tanh: { f: Math.tanh, d: (z, a) => 1 - a * a },
+    relu: { f: z => (z > 0 ? z : 0), d: z => (z > 0 ? 1 : 0) },
+    identity: { f: z => z, d: () => 1 },
+  };
+
+  NN.paramCount = sizes => sizes.slice(1).reduce((s, m, l) => s + (sizes[l] + 1) * m, 0);
+
+  // Init matches PyTorch's nn.Linear default: W and b ~ U(-1/sqrt(fan_in), 1/sqrt(fan_in)).
+  NN.mlp = (sizes, hidden, out, seed) => {
+    const r = NN.rng(seed), W = [], b = [];
+    for (let l = 0; l + 1 < sizes.length; l++) {
+      const n = sizes[l], m = sizes[l + 1], k = 1 / Math.sqrt(n);
+      W.push(Float64Array.from({ length: m * n }, () => (2 * r() - 1) * k));
+      b.push(Float64Array.from({ length: m }, () => (2 * r() - 1) * k));
+    }
+    return { sizes, W, b, hidden, out };
+  };
+
+  // Reuses per-net buffers: training calls this hundreds of thousands of times.
+  const buffers = net => net._buf || (net._buf = {
+    A: net.sizes.map(n => new Float64Array(n)), Z: net.sizes.slice(1).map(n => new Float64Array(n)),
+    D: net.sizes.map(n => new Float64Array(n)),
+  });
+
+  NN.forward = (net, x) => {
+    const L = net.W.length, { A, Z } = buffers(net);
+    for (let i = 0; i < x.length; i++) A[0][i] = x[i];
+    for (let l = 0; l < L; l++) {
+      const n = net.sizes[l], m = net.sizes[l + 1], W = net.W[l], a = A[l], z = Z[l], o = A[l + 1], bl = net.b[l];
+      const f = NN.acts[l === L - 1 ? net.out : net.hidden].f;
+      for (let j = 0; j < m; j++) {
+        let s = bl[j];
+        for (let i = 0, r = j * n; i < n; i++) s += W[r + i] * a[i];
+        z[j] = s; o[j] = f(s);
+      }
+    }
+    return { A, Z };
+  };
+
+  NN.out = (net, x) => NN.forward(net, x).A[net.W.length][0];
+
+  // Full-batch MSE, L = mean over samples of (y - t)^2, and its exact gradient by backprop.
+  NN.grad = (net, X, T) => {
+    const L = net.W.length, N = X.length;
+    const gW = net.W.map(w => new Float64Array(w.length)), gb = net.b.map(v => new Float64Array(v.length));
+    const out = NN.acts[net.out], hid = NN.acts[net.hidden];
+    let loss = 0;
+    const D = buffers(net).D;
+    for (let s = 0; s < N; s++) {
+      const { A, Z } = NN.forward(net, X[s]), y = A[L], dL = D[L];
+      for (let j = 0; j < y.length; j++) {
+        const e = y[j] - T[s][j];
+        loss += (e * e) / N;
+        dL[j] = ((2 * e) / N) * out.d(Z[L - 1][j], y[j]);
+      }
+      for (let l = L - 1; l >= 0; l--) {
+        const n = net.sizes[l], m = net.sizes[l + 1], W = net.W[l], a = A[l], d = D[l + 1], gw = gW[l], g = gb[l];
+        for (let j = 0; j < m; j++) {
+          const dj = d[j];
+          g[j] += dj;
+          for (let i = 0, r = j * n; i < n; i++) gw[r + i] += dj * a[i];
+        }
+        if (l > 0) {
+          const p = D[l], z = Z[l - 1];
+          for (let i = 0; i < n; i++) {
+            let s2 = 0;
+            for (let j = 0; j < m; j++) s2 += W[j * n + i] * d[j];
+            p[i] = s2 * hid.d(z[i], a[i]);
+          }
+        }
+      }
+    }
+    return { loss, gW, gb };
+  };
+
+  NN.mse = (net, X, T) => X.reduce((s, x, i) => s + (NN.out(net, x) - T[i][0]) ** 2, 0) / X.length;
+
+  NN.layerNorms = g => g.gW.map((w, l) => Math.sqrt(w.reduce((s, v) => s + v * v, 0) + g.gb[l].reduce((s, v) => s + v * v, 0)));
+
+  // 'gd' is plain gradient descent; 'adam' uses the usual defaults (0.9, 0.999, 1e-8).
+  NN.optimizer = (net, type, lr) => {
+    const P = [...net.W, ...net.b], m = P.map(p => new Float64Array(p.length)), v = P.map(p => new Float64Array(p.length));
+    let t = 0;
+    return g => {
+      t++;
+      const G = [...g.gW, ...g.gb], c1 = 1 - 0.9 ** t, c2 = 1 - 0.999 ** t;
+      P.forEach((p, k) => {
+        const gk = G[k];
+        for (let i = 0; i < p.length; i++) {
+          if (type === 'adam') {
+            m[k][i] = 0.9 * m[k][i] + 0.1 * gk[i];
+            v[k][i] = 0.999 * v[k][i] + 0.001 * gk[i] * gk[i];
+            p[i] -= (lr * (m[k][i] / c1)) / (Math.sqrt(v[k][i] / c2) + 1e-8);
+          } else p[i] -= lr * gk[i];
+        }
+      });
+    };
+  };
+
+  /* ---------- 1D targets and constructions ---------- */
+
+  const frac = x => x - Math.floor(x);
+  NN.targets = {
+    sine: () => x => Math.sin(2 * Math.PI * x),
+    // triangle-wave sawtooth with T teeth on [0, 1]: 0 at the ends, peaks of height 1
+    sawtooth: T => x => 1 - Math.abs(2 * frac(T * x) - 1),
+    step: () => x => (x < 0.5 ? 0 : 1),
+  };
+  NN.formulas = {
+    sine: 'f(x) = sin(2πx)',
+    sawtooth: T => `f(x) = 1 − |2·frac(${T}x) − 1|, ${T} teeth`,
+    step: 'f(x) = 0 for x < 0.5, 1 otherwise',
+  };
+
+  // One hidden layer, n ReLU units, built directly: the piecewise-linear interpolant of f
+  // through knots i/n. Unit i is relu(x - i/n); its output weight is the slope change there.
+  NN.constructRelu = (f, n) => {
+    const knots = Array.from({ length: n + 1 }, (_, i) => i / n), y = knots.map(f);
+    const slope = i => (y[i + 1] - y[i]) * n;
+    const net = { sizes: [1, n, 1], hidden: 'relu', out: 'identity',
+      W: [new Float64Array(n).fill(1), Float64Array.from({ length: n }, (_, i) => (i ? slope(i) - slope(i - 1) : slope(0)))],
+      b: [Float64Array.from({ length: n }, (_, i) => -knots[i]), Float64Array.of(y[0])] };
+    return { net, knots };
+  };
+
+  // The author's toy construction: a 2-unit ReLU tent block, tent(x) = 2·relu(x) − 4·relu(x − ½),
+  // stacked k times. The final 2,−4 combination is folded into the next block's weights.
+  NN.tentNet = k => {
+    const W = [], b = [];
+    for (let l = 0; l < k; l++) {
+      W.push(l ? Float64Array.of(2, -4, 2, -4) : Float64Array.of(1, 1));
+      b.push(Float64Array.of(0, -0.5));
+    }
+    W.push(Float64Array.of(2, -4)); b.push(Float64Array.of(0));
+    return { sizes: [1, ...Array(k).fill(2), 1], W, b, hidden: 'relu', out: 'identity' };
+  };
+
+  // Exact output of a 1D-input ReLU network on [0, 1] as a piecewise-linear function. Every neuron
+  // shares one breakpoint grid; each ReLU adds the points where some pre-activation crosses zero.
+  NN.piecewise = net => {
+    const L = net.W.length;
+    let xs = [0, 1], vals = [[0, 1]]; // values of each current-layer unit at xs
+    for (let l = 0; l < L; l++) {
+      const n = net.sizes[l], m = net.sizes[l + 1], W = net.W[l];
+      let z = Array.from({ length: m }, (_, j) => xs.map((_, k) => {
+        let s = net.b[l][j];
+        for (let i = 0; i < n; i++) s += W[j * n + i] * vals[i][k];
+        return s;
+      }));
+      if (l === L - 1) { vals = z; break; }
+      const add = [];
+      z.forEach(zj => { for (let k = 0; k + 1 < xs.length; k++) if (zj[k] * zj[k + 1] < 0) add.push(xs[k] + (zj[k] / (zj[k] - zj[k + 1])) * (xs[k + 1] - xs[k])); });
+      if (add.length) {
+        const nx = [...new Set([...xs, ...add])].sort((a, b) => a - b);
+        z = z.map(zj => interp(xs, zj, nx));
+        xs = nx;
+      }
+      vals = z.map(zj => zj.map(v => (v > 0 ? v : 0)));
+    }
+    return { xs, ys: vals[0] };
+  };
+
+  function interp(xs, ys, nx) {
+    let k = 0;
+    return nx.map(x => {
+      while (k + 2 < xs.length && xs[k + 1] < x) k++;
+      const t = (x - xs[k]) / (xs[k + 1] - xs[k]);
+      return ys[k] + t * (ys[k + 1] - ys[k]);
+    });
+  }
+
+  // Linear pieces = 1 + number of breakpoints where the slope actually changes.
+  NN.countPieces = ({ xs, ys }) => {
+    let pieces = 0, prev = null;
+    for (let k = 0; k + 1 < xs.length; k++) {
+      const dx = xs[k + 1] - xs[k];
+      if (dx <= 0) continue;
+      const s = (ys[k + 1] - ys[k]) / dx;
+      if (prev === null || Math.abs(s - prev) > 1e-9 * (1 + Math.abs(s) + Math.abs(prev))) pieces++;
+      prev = s;
+    }
+    return pieces;
+  };
+
+  /* ---------- shallow vs deep experiment ---------- */
+
+  // Shallow 1-h-1 has 3h+1 parameters. Deep 1-w-…-w-1 with D hidden layers has
+  // (D-1)w² + (D+2)w + 1. Each width is the integer closest to the budget.
+  NN.archs = (budget, depth) => {
+    const h = Math.max(1, Math.round((budget - 1) / 3));
+    const a = depth - 1, bq = depth + 2, c = 1 - budget;
+    const w = Math.max(1, Math.round((-bq + Math.sqrt(bq * bq - 4 * a * c)) / (2 * a)));
+    return { shallow: [1, h, 1], deep: [1, ...Array(depth).fill(w), 1] };
+  };
+
+  NN.summary = v => ({ mean: v.reduce((s, x) => s + x, 0) / v.length, min: Math.min(...v), max: Math.max(...v) });
+
+  NN.runExperiment = (cfg, progress) => {
+    const f = NN.targets.sawtooth(cfg.teeth), rd = NN.rng(cfg.dataSeed), rt = NN.rng(cfg.dataSeed + 1);
+    const Xtr = Array.from({ length: cfg.nTrain }, () => [rd()]), Ttr = Xtr.map(x => [f(x[0])]);
+    const Xte = Array.from({ length: cfg.nTest }, () => [rt()]), Tte = Xte.map(x => [f(x[0])]);
+    const grid = Array.from({ length: 401 }, (_, i) => i / 400);
+    const archs = NN.archs(cfg.budget, cfg.depth), runs = [], every = Math.max(1, Math.floor(cfg.epochs / 100));
+    const total = 2 * cfg.seeds * cfg.epochs;
+    let done = 0;
+    for (const model of ['shallow', 'deep']) {
+      for (let seed = 1; seed <= cfg.seeds; seed++) {
+        const net = NN.mlp(archs[model], cfg.act, 'identity', seed), step = NN.optimizer(net, cfg.opt, cfg.lr), curve = [];
+        for (let e = 0; e < cfg.epochs; e++) {
+          const g = NN.grad(net, Xtr, Ttr);
+          if (e % every === 0) curve.push([e, g.loss]);
+          step(g);
+          if (progress && ++done % 200 === 0) progress(done / total);
+        }
+        if (progress && done % 200) progress(done / total);
+        runs.push({ model, sizes: archs[model], params: NN.paramCount(archs[model]), seed,
+          trainMSE: NN.mse(net, Xtr, Ttr), testMSE: NN.mse(net, Xte, Tte), curve, fit: grid.map(x => NN.out(net, [x])) });
+      }
+    }
+    const summary = {};
+    for (const model of ['shallow', 'deep']) {
+      const r = runs.filter(x => x.model === model);
+      summary[model] = { sizes: archs[model], params: r[0].params, train: NN.summary(r.map(x => x.trainMSE)), test: NN.summary(r.map(x => x.testMSE)) };
+    }
+    return { settings: { ...cfg, target: NN.formulas.sawtooth(cfg.teeth), init: 'U(±1/√fan_in) for W and b', batch: 'full batch', loss: 'MSE',
+      trainX: `${cfg.nTrain} points ~ U[0,1], data seed ${cfg.dataSeed}`, testX: `${cfg.nTest} points ~ U[0,1], data seed ${cfg.dataSeed + 1}` },
+      grid, target: grid.map(f), runs, summary };
+  };
+
+  // Trains the shallow and the deep network side by side on one seed, calling snap(state) about every
+  // `every` ms so a page can animate it. Same data and init as runExperiment, so seed-1 numbers match.
+  NN.duel = (cfg, snap, every = 33) => {
+    const f = NN.targets.sawtooth(cfg.teeth), rd = NN.rng(cfg.dataSeed), rt = NN.rng(cfg.dataSeed + 1);
+    const X = Array.from({ length: cfg.nTrain }, () => [rd()]), T = X.map(x => [f(x[0])]);
+    const Xt = Array.from({ length: cfg.nTest }, () => [rt()]), Tt = Xt.map(x => [f(x[0])]);
+    const grid = Array.from({ length: 201 }, (_, i) => i / 200), archs = NN.archs(cfg.budget, cfg.depth);
+    const nets = ['shallow', 'deep'].map(m => { const net = NN.mlp(archs[m], cfg.act, 'identity', cfg.seed); return { m, net, step: NN.optimizer(net, cfg.opt, cfg.lr), loss: NN.mse(net, X, T) }; });
+    const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    const shot = (epoch, done) => ({ epoch, done, nets: Object.fromEntries(nets.map(n => [n.m, { loss: n.loss, fit: grid.map(x => NN.out(n.net, [x])), test: done ? NN.mse(n.net, Xt, Tt) : null }])) });
+    snap(shot(0, false));
+    let t = now();
+    for (let e = 1; e <= cfg.epochs; e++) {
+      for (const n of nets) { const g = NN.grad(n.net, X, T); n.loss = g.loss; n.step(g); }
+      if (e < cfg.epochs && now() - t >= every) { snap(shot(e, false)); t = now(); }
+    }
+    const last = shot(cfg.epochs, true);
+    snap(last);
+    return last;
+  };
+
+  if (typeof module !== 'undefined') module.exports = NN;
+  else root.NN = NN;
+})(typeof self !== 'undefined' ? self : this);
+
+</script>
+<script>
+(() => {
+  const NN = window.NN;
+  const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const css = getComputedStyle(document.documentElement), C = {};
+  for (const k of ['ink', 'muted', 'rule', 'plum', 'plum-tint', 'ochre', 'ochre-tint', 'verm', 'gray', 'band', 'panel'])
+    C[k.replace(/-(\w)/, (_, c) => c.toUpperCase())] = css.getPropertyValue('--' + k).trim();
+  const MONO = css.getPropertyValue('--mono').trim();
+  const STILL = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const num = el => (Number.isFinite(parseFloat(el.value)) ? parseFloat(el.value) : 0);
+  const fmt = (v, d = 3) => (v === 0 ? '0' : Math.abs(v) < 1e-3 || Math.abs(v) >= 1e4 ? v.toExponential(2) : +v.toFixed(d) + '');
+  const r2 = v => +(+v).toFixed(2);
+  const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const cell = (k, v, cls = '') => `<div class="cell ${cls}"><div class="k">${k}</div><div class="v">${v}</div></div>`;
+  const easeOut = p => 1 - (1 - p) ** 3;
+  const label = (el, text) => el.setAttribute('aria-label', text); // keeps a chart's description in step with what it shows
+  const redraws = [];
+  const onResize = f => { redraws.push(f); f(); };
+  let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => redraws.forEach(f => f()), 120); });
+
+  function fitCanvas(cv, aspect) {
+    const W = cv.clientWidth || 300, H = Math.round(W * aspect), d = devicePixelRatio || 1;
+    if (cv.width !== Math.round(W * d) || cv.height !== Math.round(H * d)) {
+      cv.width = Math.round(W * d); cv.height = Math.round(H * d); cv.style.height = H + 'px';
+    }
+    const ctx = cv.getContext('2d');
+    ctx.setTransform(d, 0, 0, d, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    ctx.font = `12px ${MONO}`;
+    return { ctx, W, H };
+  }
+
+  /* ---------- 2D plane with points, lines and a shaded output ---------- */
+  function plane(cv, opt = {}) {
+    // bare: no ticks or axis titles, for the opener where the points carry the whole message
+    const dom = opt.dom || [-0.25, 1.25], M = opt.bare ? { l: 0, r: 0, t: 0, b: 0 } : { l: 34, r: 8, t: 8, b: 30 }, span = dom[1] - dom[0];
+    const off = document.createElement('canvas'), A = hex(C.ochreTint), B = hex(C.plumTint);
+    let g = null, drag = -1, moved = false, hover = -1, kb = 0, focused = false;
+    const P = { points: [], scene: {} };
+    const toPx = (x, y) => [M.l + ((x - dom[0]) / span) * g.w, M.t + (1 - (y - dom[0]) / span) * g.h];
+    const fromPx = (px, py) => [dom[0] + ((px - M.l) / g.w) * span, dom[0] + (1 - (py - M.t) / g.h) * span];
+    P.draw = (scene = P.scene) => {
+      P.scene = scene;
+      const { ctx, W, H } = fitCanvas(cv, opt.aspect || 1);
+      g = { w: W - M.l - M.r, h: H - M.t - M.b };
+      const pr = Math.max(6, Math.min(9, g.w / 42));
+      ctx.fillStyle = C.band; ctx.fillRect(M.l, M.t, g.w, g.h);
+      ctx.save(); ctx.beginPath(); ctx.rect(M.l, M.t, g.w, g.h); ctx.clip();
+      if (scene.heat) {
+        // sample on a coarse grid, then let the browser's smoothing anti-alias the edges
+        const r = scene.res || 3, nx = Math.ceil(g.w / r) + 1, ny = Math.ceil(g.h / r) + 1, vals = new Float32Array(nx * ny);
+        off.width = nx; off.height = ny;
+        const o = off.getContext('2d'), img = o.createImageData(nx, ny);
+        for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+          const [x, y] = fromPx(M.l + i * r, M.t + j * r), v = Math.min(1, Math.max(0, scene.heat(x, y))), k = j * nx + i;
+          vals[k] = v;
+          for (let c = 0; c < 3; c++) img.data[4 * k + c] = A[c] + (B[c] - A[c]) * v;
+          img.data[4 * k + 3] = 255;
+        }
+        o.putImageData(img, 0, 0);
+        ctx.imageSmoothingEnabled = true;
+        ctx.drawImage(off, 0, 0, nx - 1, ny - 1, M.l, M.t, (nx - 1) * r, (ny - 1) * r);
+        if (scene.contour) contour(ctx, vals, nx, ny, r);
+      }
+      ctx.strokeStyle = C.rule; ctx.lineWidth = 1; ctx.setLineDash([2, 4]);
+      for (const t of [0, 0.5, 1]) {
+        const [px] = toPx(t, 0), [, py] = toPx(0, t);
+        ctx.beginPath(); ctx.moveTo(px, M.t); ctx.lineTo(px, M.t + g.h); ctx.moveTo(M.l, py); ctx.lineTo(M.l + g.w, py); ctx.stroke();
+      }
+      ctx.setLineDash([]);
+      // line labels must not land on points, their tags, or each other
+      const placed = (scene.points || P.points).flatMap(p => {
+        const [px, py] = toPx(p.x, p.y), r = pr + 6;
+        return [[px - r, py - r, 2 * r, 2 * r], [px + pr + 5, py - pr - 16, 30, 16]];
+      });
+      for (const L of scene.lines || []) drawLine(ctx, L, placed);
+      ctx.restore();
+      if (!opt.bare) drawAxes(ctx, W, H);
+      drawPoints(ctx, scene, pr);
+    };
+    function drawAxes(ctx, W, H) {
+      ctx.fillStyle = C.muted;
+      for (const t of [0, 0.5, 1]) {
+        const [px] = toPx(t, 0), [, py] = toPx(0, t);
+        ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText(t, px, M.t + g.h + 6);
+        ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.fillText(t, M.l - 6, py);
+      }
+      const ax = opt.axes || ['x1', 'x2'];
+      ctx.fillStyle = C.ink; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+      ctx.fillText(ax[0], M.l + g.w, H - 1);
+      ctx.save(); ctx.translate(12, M.t); ctx.rotate(-Math.PI / 2); ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.fillText(ax[1], 0, 0); ctx.restore();
+    }
+    function drawPoints(ctx, scene, pr) {
+      (scene.points || P.points).forEach((p, i) => {
+        const [px, py] = toPx(p.x, p.y), r = pr * (i === hover || i === drag ? 1.3 : 1);
+        if (scene.next === i) { ctx.strokeStyle = C.ink; ctx.lineWidth = 1.5; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.arc(px, py, r + 11, 0, 7); ctx.stroke(); ctx.setLineDash([]); }
+        if (focused && i === kb) { ctx.strokeStyle = C.verm; ctx.lineWidth = 2; ctx.strokeRect(px - r - 9, py - r - 9, 2 * r + 18, 2 * r + 18); } // keyboard selection
+        if (p.mis) { ctx.strokeStyle = C.verm; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(px, py, r + 5, 0, 7); ctx.stroke(); }
+        if (p.label) { ctx.fillStyle = C.plum; ctx.beginPath(); ctx.arc(px, py, r, 0, 7); ctx.fill(); }
+        else { ctx.fillStyle = C.band; ctx.strokeStyle = C.ochre; ctx.lineWidth = 2.5; ctx.fillRect(px - r + 1, py - r + 1, 2 * r - 2, 2 * r - 2); ctx.strokeRect(px - r + 1, py - r + 1, 2 * r - 2, 2 * r - 2); }
+        const tag = scene.indexLabels ? '#' + (i + 1) : p.count > 1 ? '×' + p.count : '';
+        if (tag) {
+          ctx.font = `600 12px ${MONO}`; ctx.fillStyle = C.ink; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+          ctx.fillText(tag, px + r + 7, py - r - 2); ctx.font = `12px ${MONO}`;
+        }
+      });
+    };
+    function contour(ctx, v, nx, ny, r) {
+      // marching squares at 0.5 on the sampled grid
+      ctx.strokeStyle = C.ink; ctx.lineWidth = 2; ctx.beginPath();
+      const at = (i, j) => v[j * nx + i], X = i => M.l + i * r, Y = j => M.t + j * r;
+      for (let j = 0; j + 1 < ny; j++) for (let i = 0; i + 1 < nx; i++) {
+        const c = [[i, j], [i + 1, j], [i + 1, j + 1], [i, j + 1]], pts = [];
+        for (let e = 0; e < 4; e++) {
+          const [a, b] = [c[e], c[(e + 1) % 4]], va = at(...a) - 0.5, vb = at(...b) - 0.5;
+          if ((va < 0) !== (vb < 0)) { const t = va / (va - vb); pts.push([X(a[0] + t * (b[0] - a[0])), Y(a[1] + t * (b[1] - a[1]))]); }
+        }
+        for (let s = 0; s + 1 < pts.length; s += 2) { ctx.moveTo(...pts[s]); ctx.lineTo(...pts[s + 1]); }
+      }
+      ctx.stroke();
+    }
+    function drawLine(ctx, { w, b, color, label }, placed = []) {
+      // w1 x + w2 y + b = 0, clipped to the domain box
+      const ends = [], [lo, hi] = dom;
+      if (Math.abs(w[1]) > 1e-12) for (const x of [lo, hi]) { const y = -(w[0] * x + b) / w[1]; if (y >= lo - 1e-9 && y <= hi + 1e-9) ends.push([x, y]); }
+      if (Math.abs(w[0]) > 1e-12) for (const y of [lo, hi]) { const x = -(w[1] * y + b) / w[0]; if (x >= lo - 1e-9 && x <= hi + 1e-9) ends.push([x, y]); }
+      const far = ends.find(e => Math.hypot(e[0] - ends[0][0], e[1] - ends[0][1]) > 1e-9);
+      if (!far) return;
+      const S = toPx(...ends[0]), E = toPx(...far);
+      ctx.strokeStyle = color || C.ink; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(...S); ctx.lineTo(...E); ctx.stroke();
+      if (label) {
+        ctx.font = `600 12px ${MONO}`;
+        const bw = ctx.measureText(label).width + 8, bh = 18, dx = E[0] - S[0], dy = E[1] - S[1], len = Math.hypot(dx, dy) || 1, nx = -dy / len, ny = dx / len;
+        const off = (Math.abs(nx) * bw + Math.abs(ny) * bh) / 2 + 5; // far enough that the box clears its own line
+        const hits = (a, q) => a[0] < q[0] + q[2] && q[0] < a[0] + a[2] && a[1] < q[1] + q[3] && q[1] < a[1] + a[3];
+        const inside = a => a[0] >= M.l && a[1] >= M.t && a[0] + a[2] <= M.l + g.w && a[1] + a[3] <= M.t + g.h;
+        let box = null;
+        for (const t of [0.2, 0.8, 0.35, 0.65, 0.5, 0.1, 0.9]) for (const s of [1, -1]) {
+          if (box) break;
+          const cx = S[0] + dx * t + nx * s * off, cy = S[1] + dy * t + ny * s * off, a = [cx - bw / 2, cy - bh / 2, bw, bh];
+          if (inside(a) && !placed.some(q => hits(a, q))) box = a;
+        }
+        box = box || [S[0] + dx * 0.2 + nx * off - bw / 2, S[1] + dy * 0.2 + ny * off - bh / 2, bw, bh];
+        placed.push(box);
+        ctx.fillStyle = C.band; ctx.fillRect(...box);
+        ctx.fillStyle = color || C.ink; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(label, box[0] + bw / 2, box[1] + bh / 2 + 0.5);
+        ctx.font = `12px ${MONO}`;
+      }
+    }
+    if (opt.editable) {
+      const pos = e => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+      const hit = (px, py) => {
+        let best = -1, bd = 18;
+        P.points.forEach((p, i) => { const [x, y] = toPx(p.x, p.y), d = Math.hypot(x - px, y - py); if (d < bd) { bd = d; best = i; } });
+        return best;
+      };
+      cv.addEventListener('touchstart', e => { const r = cv.getBoundingClientRect(), t = e.touches[0]; if (g && hit(t.clientX - r.left, t.clientY - r.top) >= 0) e.preventDefault(); }, { passive: false });
+      cv.addEventListener('pointerdown', e => {
+        if (!g || drag >= 0) return;
+        drag = hit(...pos(e)); moved = false;
+        if (drag >= 0) { cv.setPointerCapture(e.pointerId); cv.style.cursor = 'grabbing'; P.draw(); }
+      });
+      cv.addEventListener('pointermove', e => {
+        if (!g) return;
+        if (drag < 0) {
+          const h = hit(...pos(e));
+          if (h !== hover) { hover = h; cv.style.cursor = h >= 0 ? 'grab' : 'default'; P.draw(); }
+          return;
+        }
+        const [x, y] = fromPx(...pos(e)), s = v => Math.min(dom[1], Math.max(dom[0], Math.round(v * 20) / 20)), p = P.points[drag];
+        if (s(x) !== p.x || s(y) !== p.y) { p.x = s(x); p.y = s(y); moved = true; opt.onChange(); }
+      });
+      const end = () => {
+        if (drag >= 0 && !moved) { P.points[drag].label ^= 1; opt.onChange(); }
+        drag = -1; cv.style.cursor = hover >= 0 ? 'grab' : 'default'; P.draw();
+      };
+      cv.addEventListener('pointerup', end);
+      cv.addEventListener('pointercancel', () => { drag = -1; });
+      cv.addEventListener('pointerleave', () => { if (drag < 0 && hover >= 0) { hover = -1; P.draw(); } });
+      // keyboard: N / P pick a point, arrows move it (Shift for bigger steps), Enter or Space flips its label
+      cv.tabIndex = 0;
+      const live = document.createElement('p');
+      live.className = 'sr-only'; live.setAttribute('aria-live', 'polite');
+      cv.after(live);
+      const say = () => { const p = P.points[kb]; if (p) live.textContent = `Point ${kb + 1} of ${P.points.length}, at (${p.x}, ${p.y}), label ${p.label}.`; };
+      cv.addEventListener('focus', () => { focused = true; kb = Math.min(kb, P.points.length - 1); say(); P.draw(); });
+      cv.addEventListener('blur', () => { focused = false; P.draw(); });
+      cv.addEventListener('keydown', e => {
+        const n = P.points.length; if (!n) return;
+        kb = Math.min(kb, n - 1); // a preset may have swapped in fewer points
+        const p = P.points[kb], st = e.shiftKey ? 0.25 : 0.05, c = v => Math.min(dom[1], Math.max(dom[0], Math.round(v * 20) / 20));
+        const move = { ArrowLeft: [-st, 0], ArrowRight: [st, 0], ArrowUp: [0, st], ArrowDown: [0, -st] }[e.key];
+        if (move) { p.x = c(p.x + move[0]); p.y = c(p.y + move[1]); opt.onChange(); }
+        else if (e.key === 'n' || e.key === 'N' || e.key === ']') kb = (kb + 1) % n;
+        else if (e.key === 'p' || e.key === 'P' || e.key === '[') kb = (kb - 1 + n) % n;
+        else if (e.key === 'Enter' || e.key === ' ') { p.label ^= 1; opt.onChange(); }
+        else return;
+        e.preventDefault(); say(); P.draw();
+      });
+    }
+    return P;
+  }
+
+  /* ---------- 1D plot ---------- */
+  function niceTicks(lo, hi, n = 5) {
+    const step0 = (hi - lo) / n, mag = 10 ** Math.floor(Math.log10(step0)), step = [1, 2, 5, 10].map(m => m * mag).find(s => s >= step0);
+    const out = [];
+    for (let v = Math.ceil(lo / step - 1e-9) * step; v <= hi + 1e-9; v += step) out.push(+v.toPrecision(12));
+    return out;
+  }
+  function plot(cv, opt) {
+    const M = { l: 48, r: 12, t: 10, b: opt.xlabel ? 42 : 30 };
+    return (series, extra = {}) => {
+      const { ctx, W, H } = fitCanvas(cv, opt.aspect || 0.5), w = W - M.l - M.r, h = H - M.t - M.b;
+      const [x0, x1] = extra.x || opt.x, [y0, y1] = extra.y || opt.y, log = opt.log;
+      const Y = v => (log ? (v <= 0 ? y0 : Math.log10(v)) : v);
+      const px = x => M.l + ((x - x0) / (x1 - x0)) * w, py = v => M.t + (1 - (Math.min(y1, Math.max(y0, Y(v))) - y0) / (y1 - y0)) * h;
+      ctx.fillStyle = C.band; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = C.muted; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+      // with zeros present, the bottom line of a log axis means exactly 0, so it gets no decade label
+      const zeroAt = log && opt.zeroLine && extra.hasZero;
+      const yt = (log ? niceTicks(y0, y1, 4).filter(v => Number.isInteger(v)) : niceTicks(y0, y1, 4)).filter(t => !(zeroAt && t === y0));
+      for (const t of yt) {
+        const yy = M.t + (1 - (t - y0) / (y1 - y0)) * h;
+        ctx.fillText(log ? (t === 0 ? '1' : `1e${t}`) : t, M.l - 6, yy);
+        ctx.strokeStyle = C.rule; ctx.setLineDash([2, 4]); ctx.beginPath(); ctx.moveTo(M.l, yy); ctx.lineTo(M.l + w, yy); ctx.stroke(); ctx.setLineDash([]);
+      }
+      ctx.strokeStyle = C.rule; ctx.beginPath(); ctx.moveTo(M.l, M.t + h); ctx.lineTo(M.l + w, M.t + h); ctx.stroke();
+      if (zeroAt) { ctx.fillStyle = C.ink; ctx.fillText('0', M.l - 6, M.t + h); }
+      ctx.textBaseline = 'top'; ctx.fillStyle = C.muted;
+      for (const t of niceTicks(x0, x1, opt.xticks || 5)) {
+        const half = ctx.measureText(t).width / 2;
+        ctx.textAlign = px(t) + half > W ? 'right' : 'center';
+        ctx.fillText(t, ctx.textAlign === 'right' ? W - 1 : px(t), M.t + h + 5);
+      }
+      if (opt.xlabel) { ctx.fillStyle = C.ink; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillText(opt.xlabel, M.l + w, H); }
+      ctx.save(); ctx.beginPath(); ctx.rect(M.l, M.t - 2, w, h + 4); ctx.clip();
+      ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      for (const s of series) {
+        ctx.strokeStyle = s.color; ctx.lineWidth = s.width || 2; ctx.globalAlpha = s.alpha ?? 1;
+        ctx.beginPath();
+        s.xs.forEach((x, i) => (i ? ctx.lineTo(px(x), py(s.ys[i])) : ctx.moveTo(px(x), py(s.ys[i]))));
+        ctx.stroke();
+        if (s.dots) { ctx.fillStyle = s.color; s.dots.forEach(([x, v]) => { ctx.beginPath(); ctx.arc(px(x), py(v), 3.5, 0, 7); ctx.fill(); }); }
+      }
+      ctx.restore(); ctx.globalAlpha = 1;
+      if (extra.empty) {
+        ctx.font = `13px ${MONO}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        const tw = ctx.measureText(extra.empty).width;
+        ctx.fillStyle = C.band; ctx.fillRect(M.l + w / 2 - tw / 2 - 8, M.t + h / 2 - 11, tw + 16, 22);
+        ctx.fillStyle = C.muted; ctx.fillText(extra.empty, M.l + w / 2, M.t + h / 2);
+      }
+    };
+  }
+  const logRange = vals => {
+    const pos = vals.filter(v => v > 0);
+    if (!pos.length) return [-8, 0];
+    return [Math.floor(Math.log10(Math.min(...pos))) - (vals.some(v => v === 0) ? 1 : 0), Math.ceil(Math.log10(Math.max(...pos)) + 1e-9)];
+  };
+
+  // Moves a line from where it is drawn to where it now is, so each update reads as a motion.
+  function tween(get, set, draw) {
+    let raf = 0;
+    return (to, ms = 220) => {
+      cancelAnimationFrame(raf);
+      const from = get();
+      if (STILL || ms <= 0) { set(to); draw(); return; }
+      const t0 = performance.now();
+      const f = now => {
+        const p = easeOut(Math.min(1, (now - t0) / ms));
+        set({ w: [0, 1].map(i => from.w[i] + (to.w[i] - from.w[i]) * p), b: from.b + (to.b - from.b) * p });
+        draw();
+        if (p < 1) raf = requestAnimationFrame(f);
+      };
+      raf = requestAnimationFrame(f);
+    };
+  }
+
+  /* ---------- node-and-edge network diagrams ---------- */
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  // spec: { h, cols: [{ title, nodes: [{ label, sub, cls, r }] }], edges: [{ a: [col, i], b: [col, j], label, cls, w, t }], extra(W, H, pos) }
+  function net(el, spec) {
+    const W = Math.max(280, el.clientWidth || 600), H = spec.h || 220, narrow = W < 480, n = spec.cols.length;
+    const padX = narrow ? Math.min(spec.padX ?? 56, 40) : spec.padX ?? 56, top = spec.top ?? 16, bottom = spec.bottom ?? 40;
+    const colX = c => (n === 1 ? W / 2 : padX + (c * (W - 2 * padX)) / (n - 1));
+    const pos = spec.cols.map((col, c) => col.nodes.map((_, i) => [colX(c), top + ((H - top - bottom) * (i + 0.5)) / col.nodes.length]));
+    // phones get smaller neurons so edge labels have room; small dots stay as they are
+    const rOf = (c, i) => { const r = spec.cols[c].nodes[i].r ?? spec.r ?? 20; return narrow && r >= 10 ? r * 0.75 : r; };
+    let s = '';
+    for (const e of spec.edges || []) {
+      const [x1, y1] = pos[e.a[0]][e.a[1]], [x2, y2] = pos[e.b[0]][e.b[1]], d = Math.hypot(x2 - x1, y2 - y1) || 1;
+      const ra = rOf(...e.a), rb = rOf(...e.b), ux = (x2 - x1) / d, uy = (y2 - y1) / d;
+      s += `<line class="edge ${e.cls || ''}" x1="${x1 + ux * ra}" y1="${y1 + uy * ra}" x2="${x2 - ux * rb}" y2="${y2 - uy * rb}"${e.w ? ` style="stroke-width:${e.w}"` : ''}/>`;
+      if (e.label !== undefined && e.label !== '') {
+        const t = e.t ?? 0.45, lx = x1 + (x2 - x1) * t, ly = y1 + (y2 - y1) * t, tw = String(e.label).length * 7.6 + 8;
+        s += `<rect class="lblbg" x="${lx - tw / 2}" y="${ly - 9}" width="${tw}" height="18" rx="2"/><text x="${lx}" y="${ly + 4.5}" text-anchor="middle">${esc(e.label)}</text>`;
+      }
+    }
+    spec.cols.forEach((col, c) => col.nodes.forEach((nd, i) => {
+      const [x, y] = pos[c][i], r = rOf(c, i);
+      s += `<circle class="node ${nd.cls || ''}" cx="${x}" cy="${y}" r="${r}"/>`;
+      if (nd.label !== undefined) s += `<text x="${x}" y="${y + 4.5}" text-anchor="middle" style="font-weight:600">${esc(nd.label)}</text>`;
+      [].concat(nd.sub || []).forEach((line, k) => { s += `<text class="sub" x="${x}" y="${y + r + 15 + k * 14}" text-anchor="middle">${esc(line)}</text>`; });
+    }));
+    spec.cols.forEach((col, c) => { if (col.title) s += `<text class="title" x="${colX(c)}" y="${H - 6}" text-anchor="middle">${esc(col.title)}</text>`; });
+    if (spec.extra) s += spec.extra(W, H, pos);
+    el.innerHTML = `<svg class="net" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(spec.aria || '')}">${s}</svg>`;
+  }
+  const arrowDefs = id => `<defs><marker id="${id}f" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ahead" d="M0,0 L10,5 L0,10 z"/></marker>`
+    + `<marker id="${id}b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="ahead back" d="M0,0 L10,5 L0,10 z"/></marker></defs>`;
+
+  /* ---------- diagram: one perceptron, the umbrella example ---------- */
+  {
+    const el = $('[data-net=perceptron]');
+    onResize(() => net(el, {
+      h: 210, aria: 'Two inputs, cloudy and rain forecast, each multiplied by a weight, feed one perceptron that outputs take umbrella or not',
+      cols: [{ title: 'INPUTS', nodes: [{ label: 'x1', sub: 'cloudy?', cls: 'input' }, { label: 'x2', sub: ['rain', 'forecast?'], cls: 'input' }] },
+        { title: 'PERCEPTRON', nodes: [{ label: 'Σ', sub: 'add bias b, then step', r: 26 }] },
+        { title: 'OUTPUT', nodes: [{ label: 'ŷ', sub: ['umbrella?', '1 or 0'], cls: 'input' }] }],
+      edges: [{ a: [0, 0], b: [1, 0], label: '× w1' }, { a: [0, 1], b: [1, 0], label: '× w2' }, { a: [1, 0], b: [2, 0] }],
+    }));
+  }
+
+  /* ---------- diagram: forward values, backward blame ---------- */
+  {
+    const el = $('[data-net=backprop]');
+    onResize(() => net(el, {
+      h: 250, top: 44, bottom: 52, aria: 'A two-layer network: values flow forward from inputs to output, and blame flows backward from the error to every weight',
+      cols: [{ nodes: [{ label: 'x1', cls: 'input' }, { label: 'x2', cls: 'input' }] }, { nodes: [{ label: 'h1' }, { label: 'h2' }] }, { nodes: [{ label: 'ŷ' }] }],
+      edges: [[0, 0, 1, 0], [0, 0, 1, 1], [0, 1, 1, 0], [0, 1, 1, 1], [1, 0, 2, 0], [1, 1, 2, 0]].map(([a, i, b, j]) => ({ a: [a, i], b: [b, j] })),
+      extra: (W, H, pos) => {
+        const x0 = pos[0][0][0], x1 = pos[2][0][0], narrow = W < 480;
+        const fwd = narrow ? 'Forward: inputs → output' : 'Forward: values flow from inputs to output', back = narrow ? 'Backward: error → every weight' : 'Backward: blame flows from the error to every weight';
+        return arrowDefs('bp') + `<line class="arrow" x1="${x0}" y1="16" x2="${x1}" y2="16" marker-end="url(#bpf)"/><text x="${(x0 + x1) / 2}" y="34" text-anchor="middle">${fwd}</text>`
+          + `<line class="arrow back" x1="${x1}" y1="${H - 34}" x2="${x0}" y2="${H - 34}" marker-end="url(#bpb)"/><text class="backtext" x="${(x0 + x1) / 2}" y="${H - 10}" text-anchor="middle">${back}</text>`;
+      },
+    }));
+  }
+
+  /* ---------- diagram: one GPT-3 layer, MLP drawn to scale ---------- */
+  {
+    const el = $('[data-net=gpt3]');
+    const draw = () => {
+      const W = Math.max(300, el.clientWidth || 600), H = 250, half = W * 0.42;
+      let s = arrowDefs('g3');
+      // left: a stack of layers, the front one opened up
+      const bx = 8, by = 34, bw = Math.min(190, half - 30), bh = 170;
+      for (let k = 2; k > 0; k--) s += `<rect class="box ghost" x="${bx + k * 7}" y="${by - k * 7}" width="${bw}" height="${bh}"/>`;
+      s += `<rect class="box" x="${bx}" y="${by}" width="${bw}" height="${bh}"/>`;
+      s += `<text class="title" x="${bx}" y="14">ONE OF 96 LAYERS</text>`;
+      const ix = bx + 14, iw = bw - 28;
+      s += `<rect class="box ghost" x="${ix}" y="${by + 16}" width="${iw}" height="56"/><text x="${ix + iw / 2}" y="${by + 49}" text-anchor="middle">Attention</text>`;
+      s += `<line class="arrow" x1="${ix + iw / 2}" y1="${by + 76}" x2="${ix + iw / 2}" y2="${by + 92}" marker-end="url(#g3f)"/>`;
+      s += `<rect class="box" x="${ix}" y="${by + 96}" width="${iw}" height="56" style="stroke:var(--plum);stroke-width:2.5"/><text x="${ix + iw / 2}" y="${by + 129}" text-anchor="middle" style="fill:var(--plum);font-weight:600">MLP</text>`;
+      // right: the MLP's three layers as bars, height proportional to unit count
+      const rx = half + 20, rw = W - rx - 8, max = 160, base = 200, sizes = [12288, 49152, 12288], names = ['in', 'hidden', 'out'];
+      const bwid = Math.min(46, rw / 5), gap = (rw - 3 * bwid) / 2;
+      s += `<text class="title" x="${rx}" y="14">INSIDE THE MLP BLOCK</text>`;
+      sizes.forEach((u, i) => {
+        const h = (max * u) / 49152, x = rx + i * (bwid + gap);
+        s += `<rect class="bar" x="${x}" y="${base - h}" width="${bwid}" height="${h}" style="opacity:${i === 1 ? 1 : 0.55}"/>`;
+        s += `<text x="${x + bwid / 2}" y="${base + 18}" text-anchor="middle" style="font-weight:600">${u.toLocaleString('en-US')}</text><text class="sub" x="${x + bwid / 2}" y="${base + 34}" text-anchor="middle">${names[i]}</text>`;
+        if (i < 2) s += `<line class="edge faint" x1="${x + bwid}" y1="${base - h}" x2="${x + bwid + gap}" y2="${base - (max * sizes[i + 1]) / 49152}"/><line class="edge faint" x1="${x + bwid}" y1="${base}" x2="${x + bwid + gap}" y2="${base}"/>`;
+      });
+      s += `<line class="edge faint" x1="${bx + bw}" y1="${by + 124}" x2="${rx - 6}" y2="${base - 40}" style="stroke-dasharray:3 3"/>`;
+      el.innerHTML = `<svg class="net" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="One GPT-3 layer: an attention block, then an MLP block with 12,288 inputs, 49,152 hidden units and 12,288 outputs. The model stacks 96 of these layers.">${s}</svg>`;
+    };
+    onResize(draw);
+  }
+
+  /* ---------- opener: a line sweeping across XOR, scored live ---------- */
+  {
+    const root = $('#fig-hero'), read = $('.hero-cells', root);
+    const data = [[0, 0, 0], [0, 1, 1], [1, 0, 1], [1, 1, 0]].map(([x, y, label]) => ({ x, y, label }));
+    const pl = plane($('canvas', root), { aspect: 0.82, bare: true, dom: [-0.3, 1.3] }), best = NN.bestLinear(data);
+    let most = 0, visible = true, t = 4, shown = '';
+    new IntersectionObserver(([e]) => { visible = e.isIntersecting; }).observe(root);
+    const frame = () => {
+      // the line's normal turns slowly while it slides back and forth through the square
+      const th = 0.35 * t, s = 0.55 * Math.sin(0.23 * t), w = [Math.cos(th), Math.sin(th)], b = -(0.5 * w[0] + 0.5 * w[1]) - s;
+      const k = NN.accuracy(w, b, data);
+      most = Math.max(most, k);
+      pl.draw({ heat: (x, y) => NN.predict(w, b, [x, y]), res: 2, lines: [{ w, b }], points: data.map(p => ({ ...p, mis: NN.predict(w, b, [p.x, p.y]) !== p.label })) });
+      const html = cell('Right now', `${k}<small>/4 right</small>`) + cell('Best so far', `${most}<small>/4</small>`) + cell('Best possible', `${best}<small>/4</small>`, 'bad');
+      if (html !== shown) { read.innerHTML = shown = html; label($('canvas', root), `One straight line crossing the four XOR points. Right now it gets ${k} of 4 right; no line can get more than ${best}.`); } // the score changes rarely; don't rebuild it every frame
+    };
+    const loop = () => { if (visible && !document.hidden) { t += 1 / 60; frame(); } requestAnimationFrame(loop); };
+    onResize(frame);
+    if (!STILL) requestAnimationFrame(loop);
+  }
+
+  /* ---------- Fig 1: the perceptron rule ---------- */
+  {
+    const root = $('#fig-perceptron'), labels = { OR: [0, 1, 1, 1], XOR: [0, 1, 1, 0] };
+    const make = k => [[0, 0], [0, 1], [1, 0], [1, 1]].map(([x, y], i) => ({ x, y, label: labels[k][i] }));
+    const ins = $$('input[data-w]', root), status = $('.status', root), log = $('.log', root), playBtn = $('[data-act=run]', root);
+    let data = make('OR'), tr, shown = { w: [0, 0], b: 0 }, playing = 0;
+    const pl = plane($('canvas', root), { editable: true, onChange: () => reset() });
+    const move = tween(() => shown, v => (shown = v), () => render());
+    const reset = () => {
+      stop();
+      tr = NN.perceptron(data, [num(ins[0]), num(ins[1])], num(ins[2]));
+      shown = { w: [...tr.w], b: tr.b }; log.innerHTML = ''; render();
+    };
+    const sync = () => { ins[0].value = tr.w[0]; ins[1].value = tr.w[1]; ins[2].value = tr.b; };
+    const describe = () => {
+      if (tr.status === 'converged') return `<b>Solved.</b> A full pass with no mistakes, after ${tr.updates} fixes. Final line: w = (${tr.w[0]}, ${tr.w[1]}), b = ${tr.b}.`;
+      if (tr.status === 'cycle') { const c = tr.cycle; return `<b>Stuck in a loop.</b> At example #${c.example + 1}, the weights w = (${c.w[0]}, ${c.w[1]}), b = ${c.b} are exactly the ones it had there in epoch ${c.firstEpoch}. ${c.length} fixes later they're back, in epoch ${c.againEpoch}. It will repeat this forever.`; }
+      const p = data[tr.i];
+      return tr.last ? `Epoch ${tr.epoch}. Next up: example #${tr.i + 1} at (${p.x}, ${p.y}). ${tr.updates} fixes so far.` : `Ready. The rule starts from the weights above and looks at example #1 first.`;
+    };
+    function render() {
+      pl.points = data;
+      const pts = data.map(p => ({ ...p, mis: NN.predict(tr.w, tr.b, [p.x, p.y]) !== p.label }));
+      pl.draw({ heat: (x, y) => NN.predict(shown.w, shown.b, [x, y]), res: 2, lines: [shown], points: pts, next: tr.status === 'running' ? tr.i : -1, indexLabels: true });
+      status.innerHTML = describe();
+      status.className = 'status' + (tr.status === 'cycle' ? ' cycle' : '');
+      $('canvas', root).setAttribute('aria-label', `Perceptron line w = (${tr.w[0]}, ${tr.w[1]}), b = ${tr.b}; ${NN.accuracy(tr.w, tr.b, data)} of ${data.length} points correct`);
+    }
+    const addLog = () => {
+      const l = tr.last, p = data[l.i], li = document.createElement('li');
+      li.textContent = `Epoch ${l.epoch} · #${l.i + 1} (${p.x}, ${p.y}) label ${l.label}, said ${l.yhat} → ${l.sign > 0 ? 'add input' : l.sign < 0 ? 'subtract input' : 'no change'}${l.sign ? `: w = (${l.w[0]}, ${l.w[1]}), b = ${l.b}` : ''}`;
+      log.prepend(li);
+      while (log.children.length > 60) log.lastChild.remove();
+    };
+    const steps = (n, ms = 220) => {
+      for (let k = 0; k < n && tr.status === 'running'; k++) { const before = tr.last; tr.step(); if (tr.last !== before) addLog(); }
+      sync(); move({ w: [...tr.w], b: tr.b }, ms);
+    };
+    function stop() { cancelAnimationFrame(playing); playing = 0; playBtn.textContent = 'Play'; }
+    function play() {
+      if (playing) return stop();
+      if (tr.status !== 'running') reset();
+      if (STILL) { steps(1000 * data.length + 1, 0); return done(); }
+      playBtn.textContent = 'Pause';
+      let n = 0, last = 0;
+      const tick = now => {
+        // starts slow enough to follow each update, then speeds up
+        const gap = Math.max(0, 420 - n * 25);
+        if (now - last >= gap) { const k = gap ? 1 : Math.min(40, 1 + (n >> 3)); steps(k, Math.min(220, gap)); n += k; last = now; }
+        if (tr.status === 'running' && tr.epoch <= 1000) playing = requestAnimationFrame(tick); else { stop(); done(); }
+      };
+      playing = requestAnimationFrame(tick);
+    }
+    const done = () => { if (tr.status === 'running') status.textContent = 'Stopped after 1,000 epochs without settling or looping. That proves neither.'; };
+    root.addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.preset) { data = make(b.dataset.preset); $$('[data-preset]', root).forEach(x => x.setAttribute('aria-pressed', x === b)); reset(); }
+      else if (b.dataset.act === 'step') { stop(); steps(1); }
+      else if (b.dataset.act === 'epoch') { stop(); const e0 = tr.epoch; let k = 0; while (tr.status === 'running' && tr.epoch === e0 && k++ <= data.length) steps(1, 0); move({ w: [...tr.w], b: tr.b }); }
+      else if (b.dataset.act === 'run') play();
+      else if (b.dataset.act === 'reset') reset();
+    });
+    ins.forEach(i => i.addEventListener('input', reset));
+    reset();
+    onResize(render);
+  }
+
+  /* ---------- Fig 2: linear separability ---------- */
+  {
+    const root = $('#fig-separable'), sl = $$('input[data-w]', root), outs = $$('[data-out]', root), cells = $('.cells', root);
+    const truth = { AND: [0, 0, 0, 1], OR: [0, 1, 1, 1], XOR: [0, 1, 1, 0] };
+    let seed = 1, preset = 'OR', data, line = { w: [1, 1], b: -0.5 };
+    const sample = s => {
+      const r = NN.rng(s), t = r() * 2 * Math.PI, c = [0.3 + 0.4 * r(), 0.3 + 0.4 * r()], n = [Math.cos(t), Math.sin(t)], pts = [];
+      while (pts.length < 24) { const x = r(), y = r(), d = n[0] * (x - c[0]) + n[1] * (y - c[1]); if (Math.abs(d) >= 0.05) pts.push({ x: +x.toFixed(3), y: +y.toFixed(3), label: d > 0 ? 1 : 0 }); }
+      return pts;
+    };
+    const pl = plane($('canvas', root), { editable: true, onChange: () => render() });
+    const move = tween(() => line, v => (line = v), () => render());
+    // one group inside a circle, the other in a ring around it: a common real-data shape no line can split
+    const rings = () => {
+      // outer points are spread evenly around the circle, with a little jitter, so the ring reads as a ring
+      const r = NN.rng(7), pt = (t, d) => [+(0.5 + d * Math.cos(t)).toFixed(3), +(0.5 + d * Math.sin(t)).toFixed(3)];
+      const inner = Array.from({ length: 10 }, () => [...pt(r() * 2 * Math.PI, 0.2 * Math.sqrt(r())), 1]);
+      const outer = Array.from({ length: 20 }, (_, i) => [...pt(((i + 0.6 * r()) / 20) * 2 * Math.PI, 0.34 + 0.1 * r()), 0]);
+      return [...inner, ...outer].map(([x, y, label]) => ({ x, y, label }));
+    };
+    const load = () => {
+      data = preset === 'random' ? sample(seed) : preset === 'rings' ? rings() : [[0, 0], [0, 1], [1, 0], [1, 1]].map(([x, y], i) => ({ x, y, label: truth[preset][i] }));
+      pl.points = data; render();
+    };
+    function render() {
+      const { w, b } = line;
+      [w[0], w[1], b].forEach((v, i) => { outs[i].textContent = r2(v).toFixed(2); });
+      pl.draw({ heat: (x, y) => NN.predict(w, b, [x, y]), res: 2, lines: [{ w, b }], points: data.map(p => ({ ...p, mis: NN.predict(w, b, [p.x, p.y]) !== p.label })) });
+      const acc = NN.accuracy(w, b, data), best = NN.bestLinear(data), n = data.length;
+      label($('canvas', root), `${preset === 'random' ? 'Random' : preset === 'rings' ? 'Rings' : preset} data, ${n} points. This line gets ${acc} right; the best any line can do is ${best}.`);
+      cells.innerHTML = cell('This line', `${acc}<small>/${n}</small>`, acc === n ? 'good' : '') + cell('Best any line can do', `${best}<small>/${n}</small>`, best < n ? 'bad' : 'good')
+        + `<div class="cell" style="grid-column:1/-1"><div class="k">${preset === 'random' ? `Random sample, seed ${seed}` : preset === 'rings' ? 'Rings: one group inside, one around it' : preset}</div><div class="k" style="color:var(--ink)">${best < n ? 'No straight line separates these points.' : 'A straight line can separate these points.'}</div></div>`;
+    }
+    root.addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.act === 'best') {
+        const L = NN.bestLine(data), m = Math.max(Math.abs(L.w[0]), Math.abs(L.w[1]), Math.abs(L.b)) / 3.5;
+        const to = { w: [L.w[0] / Math.max(1, m), L.w[1] / Math.max(1, m)], b: L.b / Math.max(1, m) }; // same line, scaled to fit the sliders
+        sl.forEach((s, i) => (s.value = i < 2 ? to.w[i] : to.b));
+        return move(to, 450);
+      }
+      if (b.dataset.preset) { preset = b.dataset.preset; $$('[data-preset]', root).forEach(x => x.setAttribute('aria-pressed', x === b)); }
+      if (b.dataset.act === 'resample') { preset = 'random'; seed++; $$('[data-preset]', root).forEach(x => x.setAttribute('aria-pressed', x.dataset.preset === 'random')); }
+      load();
+    });
+    sl.forEach(s => s.addEventListener('input', () => { line = { w: [num(sl[0]), num(sl[1])], b: num(sl[2]) }; render(); }));
+    load();
+    onResize(render);
+  }
+
+  /* ---------- Fig 3: the three-neuron XOR network ---------- */
+  {
+    const root = $('#fig-network'), ins = $$('input[data-w]', root), def = [1, 1, -0.5, -1, -1, 1.5, 1, 1, -1.5];
+    const X = [[0, 0], [0, 1], [1, 0], [1, 1]], xor = [0, 1, 1, 0], st = z => (z > 0 ? 1 : 0);
+    const pin = plane($('[data-role=input]', root), { aspect: 1 }), phid = plane($('[data-role=hidden]', root), { aspect: 1, axes: ['h1', 'h2'] });
+    let scramble = 1;
+    const set = v => ins.forEach((el, i) => (el.value = v[i]));
+    function render() {
+      const v = ins.map(num), H = ([a, b]) => [st(v[0] * a + v[1] * b + v[2]), st(v[3] * a + v[4] * b + v[5])], O = ([h1, h2]) => st(v[6] * h1 + v[7] * h2 + v[8]);
+      const rows = X.map((x, i) => { const h = H(x), o = O(h); return { x, h, o, t: xor[i] }; });
+      pin.draw({ heat: (a, b) => O(H([a, b])), res: 2, lines: [{ w: [v[0], v[1]], b: v[2], label: 'Neuron 1' }, { w: [v[3], v[4]], b: v[5], label: 'Neuron 2' }],
+        points: rows.map(r => ({ x: r.x[0], y: r.x[1], label: r.t, mis: r.o !== r.t })) });
+      const groups = new Map();
+      rows.forEach(r => { const k = r.h + '|' + r.t, g = groups.get(k); groups.set(k, { x: r.h[0], y: r.h[1], label: r.t, mis: g?.mis || r.o !== r.t, count: (g?.count || 0) + 1 }); });
+      // a 1 and a 0 on the same hidden point can't be split by any output line, so show both, side by side
+      const hp = [...groups.values()];
+      hp.forEach(p => { if (hp.some(q => q !== p && q.x === p.x && q.y === p.y)) p.x += p.label ? 0.11 : -0.11; });
+      phid.draw({ heat: (a, b) => O([a, b]), res: 2, lines: [{ w: [v[6], v[7]], b: v[8], label: 'Output' }], points: hp });
+      const isDef = v.every((x, i) => x === def[i]), sr = rows[sel], on = b => (b ? ' on' : '');
+      const ec = w => (w > 0 ? 'pos' : w < 0 ? 'neg' : ''), ew = w => 1 + Math.min(3, Math.abs(w)) * 1.1;
+      const edge = (a, b, w, t) => ({ a, b, label: r2(w), cls: ec(w), w: ew(w), t });
+      net($('[data-role=net]', root), {
+        h: 250, padX: 64, bottom: 30, aria: `Network diagram for input (${sr.x[0]}, ${sr.x[1]}): hidden outputs ${sr.h[0]} and ${sr.h[1]}, network output ${sr.o}`,
+        cols: [{ title: 'INPUTS', nodes: [{ label: sr.x[0], sub: 'x1', cls: 'input' + on(sr.x[0]) }, { label: sr.x[1], sub: 'x2', cls: 'input' + on(sr.x[1]) }] },
+          { title: 'HIDDEN LAYER', nodes: [{ label: sr.h[0], sub: [isDef ? 'h1 · OR' : 'h1', `bias ${r2(v[2])}`], cls: on(sr.h[0]) }, { label: sr.h[1], sub: [isDef ? 'h2 · NAND' : 'h2', `bias ${r2(v[5])}`], cls: on(sr.h[1]) }] },
+          { title: 'OUTPUT', nodes: [{ label: sr.o, sub: [isDef ? 'out · AND' : 'out', `bias ${r2(v[8])}`], cls: on(sr.o) }] }],
+        // the two crossing edges meet in the middle, so their labels sit near their inputs instead
+        edges: [edge([0, 0], [1, 0], v[0], 0.55), edge([0, 1], [1, 0], v[1], 0.25), edge([0, 0], [1, 1], v[3], 0.25), edge([0, 1], [1, 1], v[4], 0.55), edge([1, 0], [2, 0], v[6], 0.5), edge([1, 1], [2, 0], v[7], 0.5)],
+      });
+      $('[data-role=net-caption]', root).innerHTML = `Showing input <b>(${sr.x[0]}, ${sr.x[1]})</b>: the network says <b>${sr.o}</b>, XOR says <b>${sr.t}</b>. Filled circles are neurons that fire. Click a table row to send a different input through.`;
+      $('tbody', root).innerHTML = rows.map((r, i) => `<tr data-i="${i}" class="${r.o !== r.t ? 'bad' : ''}${i === sel ? ' current' : ''}"><td>${r.x[0]}</td><td>${r.x[1]}</td><td>${r.h[0]}</td><td>${r.h[1]}</td><td>${r.o}</td><td>${r.t}</td><td>${r.o === r.t ? '✓' : '✗'}</td></tr>`).join('');
+      const right = rows.filter(r => r.o === r.t).length;
+      label($('[data-role=input]', root), `Input plane with the two hidden neurons' lines. The network gets ${right} of 4 XOR cases right.`);
+      label($('[data-role=hidden]', root), `Hidden plane with the output neuron's line. ${right} of 4 cases end up on the correct side.`);
+      const ok = rows.filter(r => r.o === r.t).length, verdict = $('[data-role=verdict]', root);
+      verdict.className = 'status' + (ok === 4 ? ' solved' : '');
+      verdict.innerHTML = (justScrambled ? 'Weights scrambled. ' : '') + (ok === 4
+        ? `<b>All 4 rows match XOR.</b> ${v.every((x, i) => x === def[i]) ? 'These are the OR, NAND and AND neurons from the text.' : 'You found weights that work.'}`
+        : `<b>${ok} of 4 rows match XOR.</b> Change the numbers below to fix the red rows, or press Reset.`);
+    }
+    let justScrambled = false, sel = 1;
+    $('tbody', root).addEventListener('click', e => { const tr = e.target.closest('tr'); if (tr) { sel = +tr.dataset.i; render(); } });
+    ins.forEach(i => i.addEventListener('input', () => { justScrambled = false; render(); }));
+    root.addEventListener('click', e => {
+      const a = e.target.closest('button')?.dataset.act;
+      justScrambled = a === 'scramble';
+      if (a === 'reset') set(def);
+      if (a === 'scramble') { const r = NN.rng(scramble++); set(def.map(() => Math.round((r() * 4 - 2) * 10) / 10)); }
+      if (a) render();
+    });
+    set(def);
+    onResize(render);
+  }
+
+  /* ---------- Fig 4: training on XOR ---------- */
+  {
+    const root = $('#fig-train'), k = n => $(`[data-k=${n}]`, root), grid = $('[data-role=grid]', root);
+    const X = [[0, 0], [0, 1], [1, 0], [1, 1]], T = [[0], [1], [1], [0]];
+    const pl = plane($('[data-role=plane]', root), { aspect: 1 });
+    const lossPlot = plot($('[data-role=loss]', root), { aspect: 0.45, x: [0, 1], y: [0, 0.5], xlabel: 'Epoch' });
+    const gradPlot = plot($('[data-role=grad]', root), { aspect: 0.45, x: [0, 1], y: [-8, 0], log: true, zeroLine: true, xlabel: 'Epoch' });
+    let S, raf = 0, sweep = null;
+    const cfg = () => {
+      const act = k('act').value, H = Math.max(1, Math.min(8, Math.round(num(k('H')))));
+      return { act, H, out: act === 'step' ? 'step' : 'sigmoid', lr: num(k('lr')), epochs: Math.max(1, Math.round(num(k('epochs')))), seed: Math.max(1, Math.round(num(k('seed')))) };
+    };
+    const settingsText = c => `Dataset XOR (4 points) · network 2-${c.H}-1, ${NN.paramCount([2, c.H, 1])} parameters · hidden ${c.act}, output ${c.out} · loss MSE · full-batch gradient descent, learning rate ${c.lr} · ${c.epochs} epochs · init U(±1/√fan_in)`;
+    const correct = net => X.filter((x, i) => (NN.out(net, x) > 0.5 ? 1 : 0) === T[i][0]).length;
+    function reset() {
+      cancelAnimationFrame(raf); raf = 0;
+      const c = cfg(), net = NN.mlp([2, c.H, 1], c.act, c.out, c.seed);
+      S = { c, net, opt: NN.optimizer(net, 'gd', c.lr), epoch: 0, loss: [], g1: [], g2: [], last: NN.grad(net, X, T) };
+      $('[data-act=train]', root).textContent = 'Train';
+      markSeed();
+      render();
+    }
+    function epoch() {
+      const g = NN.grad(S.net, X, T), [g1, g2] = NN.layerNorms(g);
+      S.loss.push(g.loss); S.g1.push(g1); S.g2.push(g2); S.last = g;
+      S.opt(g); S.epoch++;
+    }
+    function render() {
+      const { net, c } = S;
+      pl.draw({ heat: (a, b) => NN.out(net, [a, b]), res: 5, contour: c.act !== 'step', points: X.map((x, i) => ({ x: x[0], y: x[1], label: T[i][0], mis: (NN.out(net, x) > 0.5 ? 1 : 0) !== T[i][0] })) });
+      const xs = S.loss.map((_, i) => i), E = Math.max(c.epochs, 1), gs = [...S.g1, ...S.g2];
+      lossPlot([{ xs, ys: S.loss, color: C.ink }], { x: [0, E], y: [0, Math.max(0.3, ...S.loss.map(v => Math.ceil(v * 10) / 10 + 0.1))] });
+      gradPlot([{ xs, ys: S.g1, color: C.plum }, { xs, ys: S.g2, color: C.ochre }], { x: [0, E], y: logRange(gs), hasZero: gs.includes(0) });
+      const [n1, n2] = NN.layerNorms(S.last), z = v => (v === 0 ? '0 <small>exactly</small>' : fmt(v)), ok = correct(net);
+      $('[data-role=now]', root).innerHTML = cell('Epoch', `${S.epoch}<small>/${c.epochs}</small>`) + cell('Loss (MSE)', fmt(S.last.loss, 4)) + cell('Correct', `${ok}<small>/4</small>`, ok === 4 ? 'good' : '')
+        + cell('Hidden gradient', z(n1), n1 === 0 ? 'bad' : '') + cell('Output gradient', z(n2), n2 === 0 ? 'bad' : '');
+      $('[data-role=now-settings]', root).textContent = `${settingsText(c)} · seed ${c.seed}`;
+      label($('[data-role=plane]', root), `After ${S.epoch} epochs the network gets ${ok} of 4 XOR cases right.`);
+      label($('[data-role=loss]', root), `Loss ${fmt(S.last.loss, 4)} after ${S.epoch} of ${c.epochs} epochs.`);
+      label($('[data-role=grad]', root), `Gradient size: hidden layer ${n1 === 0 ? 'exactly 0' : fmt(n1)}, output layer ${n2 === 0 ? 'exactly 0' : fmt(n2)}.`);
+    }
+    function train() {
+      if (raf) { cancelAnimationFrame(raf); raf = 0; $('[data-act=train]', root).textContent = 'Train'; return; }
+      if (S.epoch >= S.c.epochs) reset();
+      $('[data-act=train]', root).textContent = 'Pause';
+      const per = Math.max(1, Math.ceil(S.c.epochs / 240));
+      const tick = () => {
+        for (let i = 0; i < per && S.epoch < S.c.epochs; i++) epoch();
+        S.last = NN.grad(S.net, X, T);
+        render();
+        if (S.epoch < S.c.epochs) raf = requestAnimationFrame(tick);
+        else { raf = 0; $('[data-act=train]', root).textContent = 'Train'; }
+      };
+      raf = requestAnimationFrame(tick);
+    }
+    const sig = c => JSON.stringify({ ...c, seed: 0 });
+    const markSeed = () => $$('button', grid).forEach((b, i) => b.classList.toggle('cur', sweep && sig(S.c) === sweep.sig && i + 1 === S.c.seed));
+    function seeds() {
+      const c = cfg(), N = 100, box = $('[data-role=seeds]', root), btn = $('[data-act=seeds]', root);
+      let s = 1, solved = 0, atInit = 0;
+      btn.disabled = true;
+      sweep = { sig: sig(c), ok: [] };
+      grid.innerHTML = Array.from({ length: N }, (_, i) => `<button type="button" title="Seed ${i + 1}" aria-label="Seed ${i + 1}"></button>`).join('');
+      const cellsEl = $$('button', grid);
+      const chunk = () => {
+        const t0 = performance.now();
+        while (s <= N && performance.now() - t0 < 30) {
+          const net = NN.mlp([2, c.H, 1], c.act, c.out, s), opt = NN.optimizer(net, 'gd', c.lr);
+          if (correct(net) === 4) atInit++;
+          for (let e = 0; e < c.epochs; e++) opt(NN.grad(net, X, T));
+          const ok = correct(net) === 4;
+          if (ok) solved++;
+          sweep.ok[s] = ok;
+          cellsEl[s - 1].classList.toggle('ok', ok);
+          cellsEl[s - 1].title = `Seed ${s}: ${ok ? 'reached zero error' : 'did not reach zero error'}. Click to load.`;
+          s++;
+        }
+        box.innerHTML = s <= N ? `Running seed ${s} of ${N}…` :
+          `<span class="big">${solved} of ${N}</span> random starts solved XOR, getting all four points right. ${atInit} of ${N} already had them right before training. Filled squares solved it. Click any square to train that start above.<details class="settings"><summary>Exact settings</summary>${settingsText(c)} · seeds 1–${N} · solved = all four points on the correct side of 0.5 after the last epoch</details>`;
+        if (s <= N) setTimeout(chunk, 0); else { btn.disabled = false; markSeed(); }
+      };
+      chunk();
+    }
+    grid.addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      k('seed').value = $$('button', grid).indexOf(b) + 1;
+      reset(); train();
+    });
+    root.addEventListener('click', e => {
+      const a = e.target.closest('button')?.dataset.act;
+      if (a === 'train') train(); else if (a === 'reset') reset(); else if (a === 'seeds') seeds();
+    });
+    $$('[data-k]', root).forEach(el => el.addEventListener('change', reset));
+    reset();
+    onResize(render);
+  }
+
+  /* ---------- Fig 5: universal approximation, construct vs train ---------- */
+  {
+    const root = $('#fig-uat'), k = n => $(`[data-k=${n}]`, root), cv = $('canvas', root);
+    const draw = plot(cv, { aspect: 0.5, x: [0, 1], y: [-1.3, 1.3], xlabel: 'x' });
+    const grid = Array.from({ length: 1001 }, (_, i) => i / 1000), pgrid = grid.filter((_, i) => i % 2 === 0);
+    const trainX = Array.from({ length: 200 }, (_, i) => [i / 199]);
+    let mode = 'construct', drawn = Array.from({ length: 101 }, (_, i) => Math.sin((2 * Math.PI * i) / 100)), trained = null, raf = 0, painting = false;
+    const target = () => {
+      const t = k('target').value;
+      if (t === 'draw') return x => { const u = Math.min(100, Math.max(0, x * 100)), i = Math.min(99, Math.floor(u)); return drawn[i] + (u - i) * (drawn[i + 1] - drawn[i]); };
+      return t === 'sawtooth' ? NN.targets.sawtooth(3) : NN.targets[t]();
+    };
+    const tcfg = () => ({ target: k('target').value, targetName: k('target').selectedOptions[0].textContent, n: +k('n').value, act: k('act').value, lr: num(k('lr')), epochs: Math.max(1, Math.round(num(k('epochs')))), seed: Math.max(1, Math.round(num(k('seed')))), drawnSig: k('target').value === 'draw' ? drawn.join() : '' });
+    const sameCfg = (a, b) => a && JSON.stringify(a) === JSON.stringify(b);
+    const mse = (f, g) => grid.reduce((s, x) => s + (f(x) - g(x)) ** 2, 0) / grid.length;
+    function render() {
+      const f = target(), n = +k('n').value, drawing = k('target').value === 'draw';
+      $('[data-out=n]', root).textContent = n;
+      $('[data-role=train-controls]', root).style.display = mode === 'train' ? '' : 'none';
+      $$('[data-mode]', root).forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === mode));
+      cv.style.cursor = drawing ? 'crosshair' : 'default';
+      const con = NN.constructRelu(f, n), conF = x => NN.out(con.net, [x]), conMSE = mse(f, conF);
+      const fresh = trained && sameCfg(trained.cfg, tcfg());
+      const series = [{ xs: pgrid, ys: pgrid.map(f), color: C.gray, width: 3 }];
+      if (mode === 'construct') series.push({ xs: pgrid, ys: pgrid.map(conF), color: C.plum, dots: con.knots.map(x => [x, conF(x)]) });
+      else if (trained) series.push({ xs: pgrid, ys: pgrid.map(x => NN.out(trained.net, [x])), color: C.plum, alpha: fresh ? 1 : 0.35 });
+      draw(series);
+      $('[data-role=hint]', root).textContent = drawing ? 'Drag across the chart to draw your own target.' : mode === 'train' && !trained ? 'Press Train to fit this width by gradient descent.' : '';
+      label(cv, `Target: ${k('target').selectedOptions[0].textContent}. Built by hand with ${n} units, MSE ${fmt(conMSE, 4)}.${trained ? ` Learned version, MSE ${fmt(trained.mse, 4)}.` : ''}`);
+      const tc = trained?.cfg;
+      // only the numbers are rebuilt each frame; the settings toggle stays put so it doesn't snap shut mid-training
+      $('[data-role=uat-main]', root).innerHTML = `<div class="cells" style="margin:0 0 8px">${cell(`Built by hand, ${n} units`, fmt(conMSE, 4) + '<small> MSE</small>')}${cell(trained ? `Learned, ${tc.n} units` : 'Learned', trained ? fmt(trained.mse, 4) + '<small> MSE</small>' : '<small>not run yet</small>', trained && !fresh ? 'bad' : '')}</div>`
+        + (trained ? `${trained.done ? '' : `Epoch ${trained.epoch} of ${tc.epochs}, still running. `}${fresh ? '' : '<span class="bad">Settings have changed since this run. Press Train to run it again.</span>'}` : '');
+      $('[data-role=uat-set]', root).hidden = !trained;
+      if (trained) $('[data-role=uat-set-text]', root).textContent = `Target ${tc.targetName}, network 1-${tc.n}-1 (${NN.paramCount([1, tc.n, 1])} parameters), ${tc.act}, 200 evenly spaced points, full-batch Adam, learning rate ${tc.lr}, ${tc.epochs} epochs, seed ${tc.seed}, init U(±1/√fan_in)`;
+    }
+    function train() {
+      cancelAnimationFrame(raf);
+      const c = tcfg(), f = target(), T = trainX.map(x => [f(x[0])]), net = NN.mlp([1, c.n, 1], c.act, 'identity', c.seed), opt = NN.optimizer(net, 'adam', c.lr);
+      trained = { cfg: c, net, epoch: 0, done: false, mse: mse(f, x => NN.out(net, [x])) };
+      // animate over at least ~60 frames, but never spend more than ~14 ms of a frame training
+      const per = Math.max(1, Math.ceil(c.epochs / 60));
+      const tick = () => {
+        const t0 = performance.now();
+        for (let i = 0; i < per && trained.epoch < c.epochs && (i === 0 || performance.now() - t0 < 14); i++, trained.epoch++) opt(NN.grad(net, trainX, T));
+        trained.done = trained.epoch >= c.epochs;
+        trained.mse = mse(f, x => NN.out(net, [x]));
+        render();
+        if (!trained.done) raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+    }
+    const paint = e => {
+      const r = cv.getBoundingClientRect(), x = (e.clientX - r.left - 48) / (r.width - 60), y = 1.3 - ((e.clientY - r.top - 10) / (r.height - 52)) * 2.6;
+      const i = Math.round(Math.min(1, Math.max(0, x)) * 100), v = Math.min(1.2, Math.max(-1.2, y));
+      if (Array.isArray(painting)) { const [pi, pv] = painting, a = Math.min(i, pi), b = Math.max(i, pi); for (let j = a; j <= b; j++) drawn[j] = b === a ? v : pv + ((j - pi) / (i - pi)) * (v - pv); } else drawn[i] = v;
+      painting = [i, v];
+      render();
+    };
+    cv.addEventListener('touchstart', e => { if (k('target').value === 'draw') e.preventDefault(); }, { passive: false });
+    cv.addEventListener('pointerdown', e => { if (k('target').value !== 'draw') return; cv.setPointerCapture(e.pointerId); painting = true; paint(e); });
+    cv.addEventListener('pointermove', e => { if (painting) paint(e); });
+    cv.addEventListener('pointerup', () => (painting = false));
+    root.addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.mode) { mode = b.dataset.mode; render(); }
+      if (b.dataset.act === 'train') train();
+    });
+    $$('[data-k]', root).forEach(el => el.addEventListener('input', render));
+    onResize(render);
+  }
+
+  /* ---------- Fig 6: tent blocks, exact piece count ---------- */
+  {
+    const root = $('#fig-tent'), sl = $('[data-k=k]', root), draw = plot($('canvas', root), { aspect: 0.42, x: [0, 1], y: [-0.05, 1.05], xlabel: 'x' });
+    const counts = Array.from({ length: 10 }, (_, i) => NN.countPieces(NN.piecewise(NN.tentNet(i + 1))));
+    function render() {
+      const kk = +sl.value, pl = NN.piecewise(NN.tentNet(kk)), pieces = NN.countPieces(pl), bound = 2 * kk + 1;
+      $('[data-out=k]', root).textContent = kk;
+      draw([{ xs: pl.xs, ys: pl.ys, color: C.plum, width: kk > 7 ? 1 : 2 }]);
+      $('.cells', root).innerHTML = cell('ReLU units used', 2 * kk) + cell('Pieces, stacked', pieces, pieces > bound ? 'good' : '') + cell('Most pieces, one layer', bound);
+      label($('canvas', root), `${kk} stacked tent blocks make a zigzag with ${pieces} straight pieces. One hidden layer with the same ${2 * kk} units can make at most ${bound}.`);
+      $('tbody', root).innerHTML = counts.map((c, i) => `<tr class="${i + 1 === kk ? 'current' : ''}"><td>${i + 1}</td><td>${2 * (i + 1)}</td><td>${c}</td><td>${2 * (i + 1) + 1}</td></tr>`).join('');
+    }
+    sl.addEventListener('input', render);
+    onResize(render);
+  }
+
+  /* ---------- Fig 7, reader view: both networks train live, side by side ---------- */
+  {
+    const root = $('#fig-exp'), base = { budget: 400, depth: 6, act: 'relu', opt: 'adam', lr: 0.01, epochs: 2000, nTrain: 256, nTest: 1000, dataSeed: 0, seed: 1 };
+    const opt = { aspect: 0.62, x: [0, 1], y: [-0.25, 1.25], xlabel: 'x' };
+    const draws = { shallow: plot($('[data-role=demo-shallow]', root), opt), deep: plot($('[data-role=demo-deep]', root), opt) };
+    const grid = Array.from({ length: 201 }, (_, i) => i / 200), archs = NN.archs(base.budget, base.depth);
+    const name = s => (s.length === 3 ? `1-${s[1]}-1` : `1-${s[1]}×${s.length - 2}-1`);
+    let teeth = 4, D = null, seen = false;
+    $('[data-role=demo-label-shallow]', root).textContent = `Shallow and wide: ${name(archs.shallow)}, ${NN.paramCount(archs.shallow)} parameters`;
+    $('[data-role=demo-label-deep]', root).textContent = `Deep and narrow: ${name(archs.deep)}, ${NN.paramCount(archs.deep)} parameters`;
+    // shape sketches: every layer is drawn, but the shallow network's 133 units are drawn as a sample
+    const sketch = (el, sizes) => {
+      const shown = sizes.map((n, i) => (i && i < sizes.length - 1 ? Math.min(n, 14) : n)), dot = { cls: 'dot', r: 3.5 };
+      const edges = [];
+      for (let c = 0; c + 1 < shown.length; c++) for (let i = 0; i < shown[c]; i++) for (let j = 0; j < shown[c + 1]; j++) edges.push({ a: [c, i], b: [c + 1, j], cls: 'faint' });
+      const hidden = sizes.length - 2, label = hidden === 1 ? `1 hidden layer of ${sizes[1]} units (${shown[1]} drawn)` : `${hidden} hidden layers of ${sizes[1]} units`;
+      net(el, { h: 132, top: 6, bottom: 24, padX: 12, r: 3.5, aria: `Network shape: ${label}`, cols: shown.map(n => ({ nodes: Array.from({ length: n }, () => dot) })), edges,
+        extra: (W, H) => `<text class="title" x="${W / 2}" y="${H - 6}" text-anchor="middle">${label}</text>` });
+    };
+    onResize(() => { sketch($('[data-role=arch-shallow]', root), archs.shallow); sketch($('[data-role=arch-deep]', root), archs.deep); });
+    // training runs in a worker so scrolling and clicks stay smooth on slow phones; it sends a snapshot about 30 times a second
+    const src = $('#nn-src').textContent + '\nself.onmessage = e => NN.duel(e.data, s => self.postMessage(s));';
+    const url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+    let worker = null, pending = 0;
+    function render() {
+      const fn = NN.targets.sawtooth(teeth), tgt = { xs: grid, ys: grid.map(fn), color: C.gray, width: 3 };
+      for (const m of ['shallow', 'deep']) draws[m]([tgt, ...(D ? [{ xs: grid, ys: D.nets[m].fit, color: m === 'deep' ? C.plum : C.ochre, width: 2.5 }] : [])]);
+      const v = m => (!D ? '–' : fmt(D.done ? D.nets[m].test : D.nets[m].loss, 4));
+      $('[data-role=demo-cells]', root).innerHTML = cell('Epoch', `${D ? D.epoch : 0}<small>/${base.epochs}</small>`)
+        + cell(D?.done ? 'Shallow, held-out MSE' : 'Shallow, training MSE', v('shallow')) + cell(D?.done ? 'Deep, held-out MSE' : 'Deep, training MSE', v('deep'));
+      $('[data-role=demo-settings]', root).textContent = `${NN.formulas.sawtooth(teeth)} · ${base.nTrain} training points, ${base.nTest} held-out · ReLU · full-batch Adam, learning rate ${base.lr} · ${base.epochs} epochs · one random start, seed ${base.seed} · init U(±1/√fan_in)`;
+      for (const m of ['shallow', 'deep']) label($(`[data-role=demo-${m}]`, root), `${m === 'deep' ? 'Deep' : 'Shallow'} network's guess at the zigzag after ${D ? D.epoch : 0} epochs. ${D?.done ? 'Held-out' : 'Training'} MSE ${v(m)}.`);
+    }
+    function play() {
+      if (worker) worker.terminate();
+      D = null; render();
+      worker = new Worker(url);
+      worker.onmessage = e => {
+        if (STILL && !e.data.done) return; // reduced motion: show only the finished result
+        D = e.data;
+        if (D.done) { worker.terminate(); worker = null; }
+        if (!pending) pending = requestAnimationFrame(() => { pending = 0; render(); });
+      };
+      worker.postMessage({ ...base, teeth });
+    }
+    root.addEventListener('click', e => {
+      const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.teeth) { teeth = +b.dataset.teeth; $$('[data-teeth]', root).forEach(x => x.setAttribute('aria-pressed', x === b)); play(); }
+      if (b.dataset.act === 'replay') play();
+    });
+    // starts the first time the figure scrolls into view, so readers see it move without pressing anything
+    new IntersectionObserver(([e]) => { if (e.isIntersecting && !seen) { seen = true; play(); } }, { threshold: 0.35 }).observe($('.two', root));
+    onResize(render);
+  }
+
+  /* ---------- Fig 7: shallow vs deep experiment (Web Worker) ---------- */
+  {
+    const root = $('#fig-exp'), k = n => $(`[data-k=${n}]`, root), bar = $('.progress > div', root), btn = n => $(`[data-act=${n}]`, root);
+    const src = $('#nn-src').textContent + '\nself.onmessage = e => { const r = NN.runExperiment(e.data, p => self.postMessage({ progress: p })); self.postMessage({ result: r }); };';
+    const url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+    let worker = null, result = null;
+    const fitShallow = plot($('[data-role=fit-shallow]', root), { aspect: 0.62, x: [0, 1], y: [-0.25, 1.25], xlabel: 'x' });
+    const fitDeep = plot($('[data-role=fit-deep]', root), { aspect: 0.62, x: [0, 1], y: [-0.25, 1.25], xlabel: 'x' });
+    const curves = plot($('[data-role=curves]', root), { aspect: 0.35, x: [0, 1], y: [-4, 0], log: true, xlabel: 'Epoch' });
+    const int = (n, lo, hi) => Math.min(hi, Math.max(lo, Math.round(num(k(n)))));
+    const cfg = () => ({ teeth: int('teeth', 1, 32), budget: int('budget', 20, 5000), depth: int('depth', 2, 16), act: k('act').value, opt: k('opt').value,
+      lr: num(k('lr')), epochs: int('epochs', 10, 50000), seeds: int('seeds', 1, 50), nTrain: 256, nTest: 1000, dataSeed: 0 });
+    const archName = s => (s.length === 3 ? `1-${s[1]}-1` : `1-${s[1]}×${s.length - 2}-1`);
+    function arch() {
+      const c = cfg(), a = NN.archs(c.budget, c.depth), ps = NN.paramCount(a.shallow), pd = NN.paramCount(a.deep);
+      $('[data-role=arch]', root).innerHTML = `<div class="cells" style="margin:0">${cell(`Shallow ${archName(a.shallow)}`, `${ps}<small> parameters</small>`)}${cell(`Deep ${archName(a.deep)}`, `${pd}<small> parameters</small>`)}</div>`;
+    }
+    const sum = s => `${fmt(s.mean, 5)} <span style="color:var(--muted)">[${fmt(s.min, 5)}, ${fmt(s.max, 5)}]</span>`;
+    function show() {
+      if (!result) {
+        const msg = worker ? 'Running…' : 'Press Run experiment';
+        [fitShallow, fitDeep].forEach(p => p([], { empty: msg })); curves([], { empty: worker ? msg : 'Loss curves appear after a run' });
+        return;
+      }
+      const r = result, s = r.settings, tgt = { xs: r.grid, ys: r.target, color: C.gray, width: 3 };
+      const lines = m => r.runs.filter(x => x.model === m).map(x => ({ xs: r.grid, ys: x.fit, color: m === 'deep' ? C.plum : C.ochre, width: 1.3, alpha: 0.75 }));
+      fitShallow([tgt, ...lines('shallow')]); fitDeep([tgt, ...lines('deep')]);
+      const cs = r.runs.map(x => ({ xs: x.curve.map(p => p[0]), ys: x.curve.map(p => p[1]), color: x.model === 'deep' ? C.plum : C.ochre, width: 1.3, alpha: 0.75 }));
+      curves(cs, { x: [0, s.epochs], y: logRange(r.runs.flatMap(x => x.curve.map(p => p[1]))) });
+      const row = m => { const q = r.summary[m]; return `<tr><td>${m === 'deep' ? 'Deep' : 'Shallow'}</td><td>${archName(q.sizes)}</td><td>${q.params}</td><td>${sum(q.train)}</td><td>${sum(q.test)}</td></tr>`; };
+      $('[data-role=results]', root).innerHTML = `<div class="table-wrap"><table><thead><tr><th>Model</th><th>Architecture</th><th>Parameters</th><th>Train MSE, mean [min, max]</th><th>Held-out MSE, mean [min, max]</th></tr></thead><tbody>${row('shallow')}${row('deep')}</tbody></table></div>
+        <details class="settings"><summary>Exact settings</summary>Target ${s.target} · train ${s.trainX} · held-out ${s.testX} · activation ${s.act} (output linear) · optimizer ${s.opt === 'adam' ? 'Adam' : 'gradient descent'}, learning rate ${s.lr}, ${s.batch} · ${s.epochs} epochs · loss ${s.loss} · init ${s.init} · model seeds 1–${s.seeds} · parameter budget ${s.budget}</details>`;
+    }
+    function run() {
+      if (worker) worker.terminate();
+      worker = new Worker(url);
+      result = null; show();
+      $('[data-role=results]', root).textContent = 'Running…';
+      bar.style.width = '0';
+      btn('run').disabled = true; btn('cancel').disabled = false; btn('json').disabled = btn('csv').disabled = true;
+      worker.onmessage = e => {
+        if ('progress' in e.data) { bar.style.width = (100 * e.data.progress).toFixed(1) + '%'; return; }
+        result = e.data.result; worker.terminate(); worker = null;
+        btn('run').disabled = false; btn('cancel').disabled = true; btn('json').disabled = btn('csv').disabled = false;
+        show();
+      };
+      worker.postMessage(cfg());
+    }
+    function cancel() {
+      if (worker) worker.terminate(); worker = null;
+      btn('run').disabled = false; btn('cancel').disabled = true; bar.style.width = '0';
+      show();
+      $('[data-role=results]', root).textContent = 'Cancelled. No results.';
+    }
+    const save = (text, type, ext) => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([text], { type }));
+      a.download = `shallow-vs-deep-${new Date().toISOString().replace(/[:.]/g, '-')}.${ext}`;
+      a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    };
+    const toJSON = () => JSON.stringify({ settings: result.settings, summary: result.summary,
+      runs: result.runs.map(({ model, sizes, params, seed, trainMSE, testMSE, curve }) => ({ model, architecture: archName(sizes), sizes, params, seed, trainMSE, testMSE, lossCurve: curve })) }, null, 2);
+    const toCSV = () => {
+      const s = result.settings, head = ['model', 'architecture', 'params', 'seed', 'train_mse', 'heldout_mse', 'teeth', 'budget', 'activation', 'optimizer', 'lr', 'epochs', 'n_train', 'n_heldout', 'data_seed', 'init', 'batch'];
+      const q = v => (/[",]/.test(v) ? `"${String(v).replace(/"/g, '""')}"` : v);
+      return [head.join(','), ...result.runs.map(r => [r.model, archName(r.sizes), r.params, r.seed, r.trainMSE, r.testMSE, s.teeth, s.budget, s.act, s.opt, s.lr, s.epochs, s.nTrain, s.nTest, s.dataSeed, s.init, s.batch].map(q).join(','))].join('\n');
+    };
+    root.addEventListener('click', e => {
+      const a = e.target.closest('button')?.dataset.act;
+      if (a === 'run') run(); else if (a === 'cancel') cancel();
+      else if (a === 'json' && result) save(toJSON(), 'application/json', 'json');
+      else if (a === 'csv' && result) save(toCSV(), 'text/csv', 'csv');
+    });
+    $$('[data-k]', root).forEach(el => el.addEventListener('input', arch));
+    $('details.advanced', root).addEventListener('toggle', show); // canvases have no width while collapsed
+    arch();
+    onResize(show);
+  }
+
+  /* ---------- section nav and back-to-top ---------- */
+  const links = $$('.nav a'), secs = links.map(a => $(a.getAttribute('href')));
+  const spy = () => {
+    const i = secs.findLastIndex(s => s.getBoundingClientRect().top < innerHeight * 0.35);
+    links.forEach((a, j) => a.classList.toggle('active', j === i));
+    // the opener is wider than the text column, so the nav waits until it has scrolled away
+    const atTop = $('.intro').getBoundingClientRect().bottom > 0;
+    $('.nav').classList.toggle('away', atTop);
+    $('.to-top').classList.toggle('away', atTop);
+  };
+  $('.to-top').addEventListener('click', () => scrollTo({ top: 0 }));
+  addEventListener('scroll', spy, { passive: true }); spy();
+})();
+
+</script>
+</body>
+</html>

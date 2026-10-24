@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Perceptrons, the Atomic Unit of Neural Networks</title>
+<meta name="description" content="An interactive walk from one perceptron to a deep network: the learning rule, XOR, backpropagation, universal approximation, and what depth buys.">
+<meta name="author" content="Fahim Ahamed">
+<!-- Share preview. build.js swaps @@SITE@@ for SITE_URL; LinkedIn needs the image as a full URL. Date also appears in the byline. -->
+<meta property="og:type" content="article">
+<meta property="og:title" content="Perceptrons, the Atomic Unit of Neural Networks">
+<meta property="og:description" content="From one perceptron to a deep network, and why stacking layers matters. An interactive explainer.">
+<meta property="og:url" content="@@SITE@@">
+<meta property="og:image" content="@@SITE@@og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The title Perceptrons beside a drawing of a small neural network: two inputs, three hidden neurons, one output">
+<meta property="article:published_time" content="2026-10-26">
+<meta property="article:author" content="https://www.linkedin.com/in/f-a-tonmoy/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Perceptrons, the Atomic Unit of Neural Networks">
+<meta name="twitter:description" content="From one perceptron to a deep network, and why stacking layers matters. An interactive explainer.">
+<meta name="twitter:image" content="@@SITE@@og.png">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23000'/%3E%3Ctext x='32' y='43' font-family='Georgia,serif' font-size='30' font-weight='700' fill='%23fff' text-anchor='middle'%3EFA%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&display=swap" rel="stylesheet">
+<style>
+/* @inline style.css */
+</style>
+</head>
+<body>
+
+<header class="intro">
+  <div>
+    <p class="eyebrow">Neural networks explained</p>
+    <h1>Perceptrons <em>the atomic unit of neural networks</em></h1>
+    <p class="deck">One artificial neuron can only draw one straight line. Stack enough of them and you get a core part of every large language model.</p>
+    <p class="byline">By Fahim Ahamed · <time datetime="2026-10-26">October 26, 2026</time> · <a href="https://www.linkedin.com/in/f-a-tonmoy/" target="_blank" rel="noopener">LinkedIn</a> · <a href="https://f-a-tonmoy.github.io/" target="_blank" rel="noopener">Portfolio</a></p>
+  </div>
+  <figure class="hero" id="fig-hero">
+    <p class="hero-cap"><span class="live" aria-hidden="true"></span>One line, trying every position to split XOR</p>
+    <canvas role="img" aria-label="A straight line sweeping across the four XOR points; it never classifies all four correctly"></canvas>
+    <div class="key"><span><i class="sw c1"></i>Should be 1</span><span><i class="sw c0"></i>Should be 0</span><span><i class="sw mis"></i>Wrong side</span></div>
+    <div class="cells hero-cells" aria-live="off"></div>
+  </figure>
+</header>
+
+<ol class="nav" aria-label="Sections">
+  <li><a href="#s1"><span class="num">01</span><span class="txt">One perceptron</span></a></li>
+  <li><a href="#s2"><span class="num">02</span><span class="txt">Why XOR fails</span></a></li>
+  <li><a href="#s3"><span class="num">03</span><span class="txt">Three neurons</span></a></li>
+  <li><a href="#s4"><span class="num">04</span><span class="txt">Training it</span></a></li>
+  <li><a href="#s5"><span class="num">05</span><span class="txt">Modern models</span></a></li>
+  <li><a href="#s6"><span class="num">06</span><span class="txt">One hidden layer</span></a></li>
+  <li><a href="#s7"><span class="num">07</span><span class="txt">What depth buys</span></a></li>
+  <li><a href="#s8"><span class="num">08</span><span class="txt">The short version</span></a></li>
+</ol>
+
+<main>
+<noscript><p class="noscript">The figures on this page need JavaScript. The text reads fine without it, but the charts, diagrams and experiments will stay blank.</p></noscript>
+<p class="lede">Four points on a grid. Two are positive, two are negative. No single straight line separates them.</p>
+
+<p>That's XOR. In 1969, Minsky and Papert wrote down the math behind limits like this one, and their book fed into a decline in neural network research.<sup><a href="#c4">4</a></sup> Yet a close cousin of that unit sits inside every large language model (LLM) today.</p>
+<p>This piece follows that unit from one neuron to a deep network,<sup><a href="#c13">13</a></sup> and asks what depth gives you that width doesn't. Depth means more layers. Width means more neurons per layer.</p>
+
+<div class="open-q short-answer"><span class="label-tag">The short answer</span>One neuron can only draw a straight line. Enough neurons in layers can draw almost any shape, and in theory one middle layer is already enough. What extra layers buy you is efficiency: some shapes need far fewer neurons when the network is deep. Whether training can find those deep solutions is less clear, and you can test it yourself near the end.</div>
+
+<p><b>Why care?</b> This unit is still the main building block of today's AI. GPT-3 has about 175 billion weights,<sup><a href="#c8">8</a></sup> and as a rough rule, writing each chunk of text takes about one multiply-and-add per weight. Knowing what one unit can and can't do explains why networks have layers at all, and why deeper ones won out.</p>
+
+<!-- ============================================================ -->
+<section id="s1">
+<p class="kicker">01</p>
+<h2>What does one perceptron do?</h2>
+
+<p>A perceptron makes a yes-or-no call from a few numbers. Say you're deciding whether to take an umbrella, based on two signals: is it cloudy, and does the forecast say rain? Each signal gets a <b>weight</b>, which says how much it counts. The perceptron multiplies each input by its weight, adds them up, then adds one more number, the <b>bias</b>, which sets how easily it says yes. If the total is above zero, it outputs 1 (yes). Otherwise, 0 (no).</p>
+<figure class="diagram" id="dia-perceptron">
+  <div class="fig-title">One perceptron, deciding about the umbrella</div>
+  <div class="net-wrap" data-net="perceptron"></div>
+  <figcaption>Each input is multiplied by its weight on the way in. The perceptron adds those up, adds the bias, and outputs 1 if the total is above zero. In code:</figcaption>
+  <pre style="margin:8px 0 0">y_hat = 1 if (w1*x1 + w2*x2 + ... + b) > 0 else 0</pre>
+</figure>
+<p>Frank Rosenblatt introduced it in 1958.<sup><a href="#c1">1</a></sup> A neural network is many of these units wired together in layers, each layer feeding the next.</p>
+<p>It helps to picture this as a line. With two inputs, every possible input is a point on a flat grid. The points where <code>w1*x1 + w2*x2 + b</code> is exactly zero form a straight line. On one side, the perceptron says 1. On the other, 0. With more inputs, the line becomes a flat sheet in more dimensions, called a <a class="term" href="https://en.wikipedia.org/wiki/Hyperplane" target="_blank" rel="noopener">hyperplane</a>. Either way, one perceptron makes one straight cut.</p>
+
+<h3>How does it learn?</h3>
+<p>It learns from labeled examples, shown one at a time:</p>
+<ul>
+  <li>If it gets the example right, change nothing.</li>
+  <li>If it says 0 when the label is 1, add the input to the weights and 1 to the bias.</li>
+  <li>If it says 1 when the label is 0, subtract the input from the weights and 1 from the bias.</li>
+</ul>
+<p>Each fix moves the line so that example is more likely to land on the right side. That's the whole method. One pass through all the examples is called an <b>epoch</b>.</p>
+<p>In 1962, Novikoff proved the rule always works on one condition: some straight line must split the two groups. If one exists, the rule finds one after a limited number of fixes.<sup><a href="#c2">2</a></sup></p>
+<p>When no such line exists, the proof promises nothing. You can see both cases below. On OR (1 if either input is 1), the rule settles. On XOR, it never does. The page remembers the weights at every step. If the same weights come back at the same example, the rule is in a loop it will repeat forever, and the page says so.</p>
+
+<figure id="fig-perceptron">
+  <div class="fig-title">Run the perceptron rule one example at a time</div>
+  <p class="howto">Plum shading: where the perceptron says 1. Red ring: a point on the wrong side. Dashed ring: the example the rule looks at next. Drag a point to move it, or click it to flip its label. With a keyboard: Tab to the chart, press N to pick a point, use the arrow keys to move it, and Enter to flip its label.</p>
+  <div class="key"><span><i class="sw c1"></i>Label 1</span><span><i class="sw c0"></i>Label 0</span><span><i class="sw mis"></i>Wrong side</span></div>
+  <div class="stage">
+    <canvas data-role="plane" role="img" aria-label="Input plane with four points and the perceptron's decision line"></canvas>
+    <div class="side">
+      <div class="group" role="group" aria-label="Dataset"><button data-preset="OR" aria-pressed="true">OR</button><button data-preset="XOR" aria-pressed="false">XOR</button></div>
+      <div class="controls">
+        <label>w1<input type="number" data-w="0" value="0" step="0.1"></label>
+        <label>w2<input type="number" data-w="1" value="0" step="0.1"></label>
+        <label>b<input type="number" data-w="2" value="0" step="0.1"></label>
+      </div>
+      <div class="controls">
+        <button data-act="step" class="primary">Step</button>
+        <button data-act="epoch">One epoch</button>
+        <button data-act="run">Play</button>
+        <button data-act="reset">Reset</button>
+      </div>
+      <p class="status" aria-live="polite"></p>
+      <ul class="log" aria-label="Update log"></ul>
+    </div>
+  </div>
+  <figcaption><details class="fine"><summary>How this works</summary>Each fix adds or subtracts the full input (a learning rate of 1). Examples are shown in a fixed order, #1 to #4. Points snap to a 0.05 grid. A loop is reported when the weights at an example match an earlier visit to that same example, with at least one fix in between. Play gives up after 1,000 epochs.</details></figcaption>
+</figure>
+<p class="bridge">So one neuron is one straight line. What happens when a straight line isn't enough?</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="s2">
+<p class="kicker">02</p>
+<h2>Why can't one neuron learn XOR?</h2>
+
+<p>XOR means "one or the other, but not both." Think of a hallway light with a switch at each end: flip either switch and the light changes. Its four cases are (0,0), (0,1), (1,0) and (1,1), with answers 0, 1, 1, 0. On a grid, the two 1s sit on one diagonal and the two 0s on the other.</p>
+<p>Try to draw one straight line with both 1s on one side and both 0s on the other. You can't. Any line that catches both 1s also catches at least one 0.</p>
+<p>So the learning rule never settles on XOR. The rule isn't broken: there's no right answer to find. The data is not <a class="term" href="https://en.wikipedia.org/wiki/Linear_separability" target="_blank" rel="noopener">linearly separable</a>, meaning no straight line splits it.</p>
+<p>Minsky and Papert's 1969 book <i>Perceptrons</i> worked out the math of limits like this one.<sup><a href="#c4">4</a></sup> XOR is the tidy example, but the limit is real. Real datasets can fail the straight-line test too, and then a single unit can't sort them perfectly, however long it trains.</p>
+<p>Try it below: a line can split AND and OR, but not XOR. The Rings preset is closer to real data, with one group sitting inside the other, like health readings that are fine near normal and worrying once they drift too far in any direction. No line splits that either.</p>
+
+<figure id="fig-separable">
+  <div class="fig-title">Try to split each dataset with one line</div>
+  <p class="howto">Higher is better. "Best any line can do" checks every way a straight line can split these points. If it falls short of all of them, no slider setting will work. You can drag points here too, or move them with the keyboard as above.</p>
+  <div class="key"><span><i class="sw c1"></i>Label 1</span><span><i class="sw c0"></i>Label 0</span><span><i class="sw mis"></i>Wrong side</span></div>
+  <div class="stage">
+    <canvas data-role="plane" role="img" aria-label="Input plane with a dataset and an adjustable line"></canvas>
+    <div class="side">
+      <div class="group" role="group" aria-label="Dataset"><button data-preset="AND">AND</button><button data-preset="OR" aria-pressed="true">OR</button><button data-preset="XOR">XOR</button><button data-preset="rings">Rings</button><button data-preset="random">Random</button></div>
+      <div class="controls stack">
+        <label><span>w1 <b data-out="0"></b></span><input type="range" data-w="0" min="-4" max="4" step="0.05" value="1"></label>
+        <label><span>w2 <b data-out="1"></b></span><input type="range" data-w="1" min="-4" max="4" step="0.05" value="1"></label>
+        <label><span>b <b data-out="2"></b></span><input type="range" data-w="2" min="-4" max="4" step="0.05" value="-0.5"></label>
+      </div>
+      <div class="cells" aria-live="polite"></div>
+      <div class="controls"><button data-act="best">Show the best line</button><button data-act="resample">New random sample</button></div>
+    </div>
+  </div>
+  <figcaption><details class="fine"><summary>How this works</summary>Rings: 10 points within 0.2 of the center, and 20 points spaced around a ring 0.34 to 0.44 from it, jittered from a fixed seed. Random: 24 points spread evenly at random over the square and labeled by a random line, leaving out points within 0.05 of it. The seed is shown so a sample can be repeated. Dragging points can make the data impossible to split.</details></figcaption>
+</figure>
+<p class="bridge">If one line can't do it, what about two?</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="s3">
+<p class="kicker">03</p>
+<h2>How do three neurons solve it?</h2>
+
+<p>The fix was known early: one neuron gives one line, so use several and combine their lines. For XOR, three are enough. Two sit in a <b>hidden layer</b>, between the inputs and the output. All three use the same yes-or-no step rule:</p>
+<ul>
+  <li>Hidden neuron 1 computes OR: <code>step(x1 + x2 - 0.5)</code></li>
+  <li>Hidden neuron 2 computes NAND: <code>step(-x1 - x2 + 1.5)</code></li>
+  <li>The output neuron computes AND of the two: <code>step(h1 + h2 - 1.5)</code></li>
+</ul>
+<p>The first hidden neuron fires if at least one input is on. The second fires unless both are on. The output fires only when both hidden neurons fire. That leaves exactly the two cases where one input is on.</p>
+<p>On the grid, each hidden neuron draws a line, and the output keeps the strip between them.</p>
+<p>The right-hand panel shows a second view. The hidden layer moves each input to a new spot, (h1, h2). There, (0,1) and (1,0) both land on (1,1), and now one straight line does split the groups. The output neuron is an ordinary perceptron drawing that line.</p>
+
+<figure id="fig-network">
+  <div class="fig-title">Edit the three neurons and check the truth table</div>
+  <p class="howto">Top: the network itself. Each edge carries a weight, plum if positive and ochre if negative, thicker when larger. Below it, left: the inputs, shaded where the network says 1, with one line per hidden neuron. Right: the same points after the hidden layer, with the output neuron's line. A table row turns red when the network gets XOR wrong.</p>
+  <p class="sub" data-role="net-caption" style="font:15px/1.45 var(--serif);color:var(--ink);margin:0"></p>
+  <div class="net-wrap" data-role="net"></div>
+  <div class="key"><span><i class="sw c1"></i>XOR = 1</span><span><i class="sw c0"></i>XOR = 0</span><span><i class="sw mis"></i>Network is wrong</span></div>
+  <div class="two">
+    <div><p class="sub">Input plane (x1, x2)</p><canvas data-role="input" role="img" aria-label="Input plane with the two hidden neuron lines"></canvas></div>
+    <div><p class="sub">Hidden plane (h1, h2)</p><canvas data-role="hidden" role="img" aria-label="Hidden plane with the output neuron line"></canvas></div>
+  </div>
+  <p class="status" data-role="verdict" aria-live="polite"></p>
+  <div class="neuron-rows">
+    <div class="controls"><span class="row-name">Hidden neuron 1</span><label>x1 weight<input type="number" data-w="0" step="0.1"></label><label>x2 weight<input type="number" data-w="1" step="0.1"></label><label>bias<input type="number" data-w="2" step="0.1"></label></div>
+    <div class="controls"><span class="row-name">Hidden neuron 2</span><label>x1 weight<input type="number" data-w="3" step="0.1"></label><label>x2 weight<input type="number" data-w="4" step="0.1"></label><label>bias<input type="number" data-w="5" step="0.1"></label></div>
+    <div class="controls"><span class="row-name">Output neuron</span><label>h1 weight<input type="number" data-w="6" step="0.1"></label><label>h2 weight<input type="number" data-w="7" step="0.1"></label><label>bias<input type="number" data-w="8" step="0.1"></label></div>
+  </div>
+  <div class="controls">
+    <button data-act="scramble">Scramble the weights</button>
+    <button data-act="reset" class="primary">Reset to OR, NAND, AND</button>
+  </div>
+  <div class="table-wrap"><table class="pick"><thead><tr><th>x1</th><th>x2</th><th>h1</th><th>h2</th><th>Output</th><th>XOR</th><th>Match</th></tr></thead><tbody></tbody></table></div>
+  <figcaption>Every neuron uses step(z) = 1 if z > 0, else 0. When two inputs land on the same hidden point, it's marked with a count. If a 1 and a 0 land on the same point, they're drawn side by side: no output line can split them, so the hidden layer has to change.</figcaption>
+</figure>
+<p class="bridge">That works when you pick the weights yourself. The hard part was getting a network to find them on its own.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="s4">
+<p class="kicker">04</p>
+<h2>Why was a network like this so hard to train?</h2>
+
+<p>Picking weights by hand works for XOR. Real problems need the weights learned from data, and the perceptron rule can't do that for hidden neurons. It fixes weights based on the output's mistake. A hidden neuron's effect on the output passes through other neurons, so the rule can't tell how much of the blame is its own.</p>
+<p>Widrow and Hoff got part of the way in 1959.<sup><a href="#c3">3</a></sup> They scored the error as a number, the squared gap between output and target, and nudged the weights in whichever direction shrinks it fastest. That direction is the <b>gradient</b>. Following it step by step, like walking downhill on the error, is called <b>gradient descent</b>. Bigger mistakes mean bigger steps. Their method, <a class="term" href="https://en.wikipedia.org/wiki/Least_mean_squares_filter" target="_blank" rel="noopener">least mean squares</a> (LMS), works for one neuron.</p>
+<p>With two layers, it breaks. To get the gradient for a hidden weight, you use the <a class="term" href="https://en.wikipedia.org/wiki/Chain_rule" target="_blank" rel="noopener">chain rule</a>: multiply the slopes along the path from that weight to the output. A step function is flat everywhere except at its jump, so its slope is zero (and has no value at the jump). One zero in the product makes the whole gradient zero. The error surface is flat ground and sudden cliffs, with no downhill to follow.</p>
+<p>The fix was small: swap the step for a smooth S-shaped curve, the sigmoid, which has a slope everywhere. Now the chain rule reaches every layer, and you get backpropagation, which passes blame backward from the output to every weight.</p>
+
+<figure class="diagram" id="dia-backprop">
+  <div class="fig-title">Values go forward, blame comes back</div>
+  <div class="net-wrap" data-net="backprop"></div>
+  <figcaption>On the way back, each edge multiplies the blame by its weight, and each neuron multiplies it by its slope. With step activations every slope is 0, so the blame is already zero when it leaves the output neuron, and no weight has anything to learn from.</figcaption>
+</figure>
+<p>Rumelhart, Hinton and Williams published it in 1986<sup><a href="#c5">5</a></sup> and called it the generalized delta rule, an extension of Widrow and Hoff's delta rule.<sup><a href="#c6">6</a></sup> The idea is older, going back at least to Werbos's 1974 thesis.<sup><a href="#c7">7</a></sup></p>
+<p>Below, the XOR network trains from random starting weights. Pick step to see the problem: the gradient is worked out exactly, comes out zero, and the weights never move.</p>
+
+<figure id="fig-train">
+  <div class="fig-title">Train a small network on XOR</div>
+  <p class="howto">Loss is the error score: lower is better. The activation is the function each neuron applies to its total: sigmoid and tanh are smooth S-curves, and ReLU is max(0, z). The learning rate sets the size of each downhill step. The seed picks the random starting weights. In the gradient chart each grid line is 10 times the one below it, and exactly zero sits on the bottom line marked 0. Shading shows the network's answer, plum near 1 and ochre near 0, with a line where it crosses 0.5.</p>
+  <div class="key"><span><i class="sw c1"></i>XOR = 1</span><span><i class="sw c0"></i>XOR = 0</span><span><i class="sw mis"></i>Wrong side</span><span><i class="sw line" style="background:var(--plum)"></i>Hidden layer gradient</span><span><i class="sw line" style="background:var(--ochre)"></i>Output layer gradient</span></div>
+  <div class="two">
+    <div><p class="sub">What the network answers</p><canvas data-role="plane" role="img" aria-label="Network output on the input plane"></canvas></div>
+    <div><p class="sub">Loss by epoch</p><canvas data-role="loss" role="img" aria-label="Loss curve"></canvas>
+      <p class="sub" style="margin-top:8px">Gradient size per layer</p><canvas data-role="grad" role="img" aria-label="Gradient size per layer"></canvas></div>
+  </div>
+  <div class="controls">
+    <label>Activation<select data-k="act"><option value="step">step</option><option value="sigmoid" selected>sigmoid</option><option value="tanh">tanh</option><option value="relu">ReLU</option></select></label>
+    <label>Hidden units<input type="number" data-k="H" value="2" min="1" max="8" step="1"></label>
+    <label>Learning rate<input type="number" data-k="lr" value="1" min="0.001" step="0.1"></label>
+    <label>Epochs<input type="number" data-k="epochs" value="3000" min="1" max="20000" step="100"></label>
+    <label>Seed<input type="number" data-k="seed" value="1" min="1" step="1"></label>
+  </div>
+  <div class="controls">
+    <button data-act="train" class="primary">Train</button>
+    <button data-act="reset">Reset</button>
+    <button data-act="seeds">Try 100 random starts</button>
+  </div>
+  <div class="cells" data-role="now" aria-live="polite"></div>
+  <details class="settings"><summary>Exact settings</summary><div data-role="now-settings"></div></details>
+  <div class="readout" data-role="seeds" aria-live="polite">Not run yet. This trains the same network from 100 different random starts and counts how many solve XOR.</div>
+  <div class="seedgrid" data-role="grid" aria-label="One square per seed. Click one to load it."></div>
+  <figcaption><details class="fine"><summary>How this works</summary>With step selected, the output neuron is a step too, so every neuron is a perceptron. Otherwise the output is a sigmoid. Gradients come from exact backpropagation, checked against a slower brute-force method in the test suite. The step's slope is taken as 0 everywhere, including the jump, where it has no value.</details></figcaption>
+</figure>
+<p class="bridge">That small fix still sits at the heart of today's biggest models.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="s5">
+<p class="kicker">05</p>
+<h2>Is this still how modern models work?</h2>
+<p>Yes, only far bigger. GPT-3 has 96 layers. Each has an attention block, which lets each word draw on the words before it, and an MLP block.<sup><a href="#c8">8</a></sup> The MLP block is a two-layer perceptron network with 49,152 hidden units and 12,288 outputs. Our XOR network has three neurons.</p>
+
+<figure class="diagram" id="dia-gpt3">
+  <div class="fig-title">One GPT-3 layer, with its MLP drawn to scale</div>
+  <div class="net-wrap" data-net="gpt3"></div>
+  <figcaption>Bar heights match the number of units: the hidden layer is four times as wide as the input and output. GPT-3 stacks 96 of these layers. Sizes from Brown et al., Table 2.1 and Section 2.1.<sup><a href="#c8">8</a></sup></figcaption>
+</figure>
+<p>Modern models use smoother activations, such as GELU or ReLU, instead of a step. The recipe hasn't changed: weighted sums, a bend, repeat.</p>
+<p class="bridge">So networks grew by stacking layers. But did they have to?</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="s6">
+<p class="kicker">06</p>
+<h2>Is one hidden layer enough?</h2>
+<p>If you can stack perceptrons, how many layers do you need?</p>
+<p>In 1989, Cybenko proved that one is enough, in principle.<sup><a href="#c9">9</a></sup> A network with a single hidden layer of sigmoid units can match any continuous curve (one with no jumps) on a <a class="term" href="https://en.wikipedia.org/wiki/Compact_space" target="_blank" rel="noopener">compact</a> domain (think of a closed range like 0 to 1) as closely as you like. In 1991, Hornik showed the same holds for many other activations.<sup><a href="#c10">10</a></sup> This is the universal approximation theorem. Taken at its word, it says you never need depth.</p>
+
+<h3>What doesn't the theorem tell you?</h3>
+<p>It says good weights exist. It says nothing about two practical questions:</p>
+<ol>
+  <li><b>How many neurons?</b> The hidden layer may need to be huge. For some functions with many inputs, far bigger than anything you could build.</li>
+  <li><b>Can you find the weights?</b> Knowing they exist doesn't mean gradient descent will reach them.</li>
+</ol>
+<p>The figure pulls those two apart. <b>Build by hand</b> sets up a one-hidden-layer network from n units, with no training. <b>Learn</b> gives the same network random weights and trains it with gradient descent. If Learn does worse with the same number of units, the network could have done it; training didn't find the way.</p>
+
+<figure id="fig-uat">
+  <div class="fig-title">Build the fit by hand, or let the network learn it</div>
+  <p class="howto">Gray is the target curve, plum is the network. MSE is the average squared gap between them: lower is better. Dots mark where the hand-built network is sure to touch the target.</p>
+  <div class="controls">
+    <div class="group" role="group" aria-label="Mode"><button data-mode="construct" aria-pressed="true">Build by hand</button><button data-mode="train" aria-pressed="false">Learn</button></div>
+  </div>
+  <canvas data-role="plot" role="img" aria-label="Target curve and network fit on [0, 1]"></canvas>
+  <div class="controls">
+    <label>Target<select data-k="target"><option value="sine">wave</option><option value="sawtooth">zigzag, 3 teeth</option><option value="step">step</option><option value="draw">draw your own</option></select></label>
+    <label>Hidden units <span data-out="n"></span><input type="range" data-k="n" min="1" max="64" step="1" value="6"></label>
+  </div>
+  <div class="controls" data-role="train-controls">
+    <label>Activation<select data-k="act"><option value="relu">ReLU</option><option value="tanh">tanh</option><option value="sigmoid">sigmoid</option></select></label>
+    <label>Learning rate<input type="number" data-k="lr" value="0.01" min="0.0001" step="0.001"></label>
+    <label>Epochs<input type="number" data-k="epochs" value="3000" min="1" max="50000" step="500"></label>
+    <label>Seed<input type="number" data-k="seed" value="1" min="1" step="1"></label>
+    <button data-act="train" class="primary">Train</button>
+  </div>
+  <p class="status" data-role="hint"></p>
+  <div class="readout" aria-live="polite"><div data-role="uat-main"></div><details class="settings" data-role="uat-set" hidden><summary>Exact settings</summary><div data-role="uat-set-text"></div></details></div>
+  <figcaption><details class="fine"><summary>How this works</summary>Build by hand: unit i computes relu(x − i/n), and its output weight is how much the slope changes at the point i/n, so the network joins the target's values at those n + 1 points with straight lines. Learn: 200 evenly spaced training points, trained with Adam (a popular variant of gradient descent that adjusts the step size for each weight) on all points at once, from PyTorch-default starting weights. Both MSEs are measured on 1,001 evenly spaced points from 0 to 1. The step target has a jump, so the theorem doesn't cover it.</details></figcaption>
+</figure>
+<p class="bridge">If one layer is enough in theory, why go deep?</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="s7">
+<p class="kicker">07</p>
+<h2>So what does depth buy you?</h2>
+<p>Two papers from 2016 put numbers on it. In plain terms:</p>
+<ul>
+  <li><b>Eldan and Shamir</b> found a shape, rings spreading out from a center like ripples on a pond, that a small network with three layers can draw. A network with two layers can't get close unless it is enormous, and the size it needs grows exponentially as you add input dimensions.<sup><a href="#c11">11</a></sup></li>
+  <li><b>Telgarsky</b> stacked a simple zigzag piece many times. Each new layer roughly doubles the number of zigzags. A network with far fewer layers can only copy the result if it has a huge number of neurons. Stacking multiplies. Widening only adds.<sup><a href="#c12">12</a></sup></li>
+</ul>
+<details class="fine aside-fine"><summary>The exact statements</summary>
+<p><b>Eldan and Shamir (2016):</b> there is a simple, roughly radial function on ℝ<sup>d</sup> that a small three-layer network can express. No two-layer network approximates it beyond a constant accuracy unless its width is exponential in d.</p>
+<p><b>Telgarsky (2016):</b> for every positive integer k, some networks with Θ(k³) layers and Θ(1) nodes per layer can't be approximated by networks with O(k) layers unless those have Ω(2<sup>k</sup>) nodes. It holds for ReLU and several other unit types.</p>
+</details>
+<p class="aside"><span class="label-tag">Intuition</span>Why would depth help? The usual answer is reuse. Each layer builds on the patterns the layer before it found, the way words build on letters. A shallow network has to build every pattern straight from the raw input. This is a way to think about the theorems, not something they prove.</p>
+
+<h3>Can you see it in a small example?</h3>
+<p><span class="label-tag">My construction</span>This example is my own, not from those papers. It uses ReLU, a common activation that outputs max(0, z): it passes positive numbers through and turns negative ones into 0. A "tent" made of two ReLU units, <code>tent(x) = 2·relu(x) − 4·relu(x − ½)</code>, folds the range 0 to 1 in half like a sheet of paper. Feed the result into a second tent and each half folds again.</p>
+<p>Each block doubles the straight pieces, so k blocks use 2k units and make 2<sup>k</sup> pieces. One hidden layer of n ReLU units can make at most n + 1 pieces on a single input, since each unit adds at most one bend. Slide k to compare.</p>
+
+<figure id="fig-tent">
+  <div class="fig-title">Stack folds and count the straight pieces</div>
+  <p class="howto">More pieces from the same number of units means more shapes per unit. Both counts are exact: the stacked count tracks every bend through each layer.</p>
+  <canvas data-role="plot" role="img" aria-label="Stacked tent function on [0, 1]"></canvas>
+  <div class="controls"><label>Tent blocks k <span data-out="k"></span><input type="range" data-k="k" min="1" max="10" step="1" value="3"></label></div>
+  <div class="cells" aria-live="polite"></div>
+  <div class="table-wrap"><table><thead><tr><th>Blocks k</th><th>ReLU units</th><th>Pieces, stacked (counted)</th><th>Most pieces, one hidden layer with the same units</th></tr></thead><tbody></tbody></table></div>
+  <figcaption><details class="fine"><summary>How this works</summary>The one-hidden-layer column is an upper limit, n + 1 for n units, not a trained network. Stacking k blocks gives exactly the zigzag with 2<sup>k−1</sup> teeth, which the test suite checks for k up to 12.</details></figcaption>
+</figure>
+
+<h3>But can training find the zigzag?</h3>
+<p>A network being able to draw a zigzag is one thing. Gradient descent finding it from a random start is another.</p>
+<p>Below, two networks of about the same size, counted in parameters (weights and biases), learn the same zigzag from random starting weights. One is shallow and wide, the other deep and narrow. Watch each guess change as it trains. The deep one may fail to find the zigzag, and that would count as a result too.</p>
+
+<figure id="fig-exp">
+  <div class="fig-title">Two networks, same size, same zigzag</div>
+  <p class="howto">Gray is the target. Each colored curve is that network's current guess. MSE is the error, so lower is better. Pick how many teeth the zigzag has, or replay the run.</p>
+  <div class="controls">
+    <div class="group" role="group" aria-label="Teeth"><button data-teeth="2">2 teeth</button><button data-teeth="4" aria-pressed="true">4 teeth</button><button data-teeth="8">8 teeth</button></div>
+    <button data-act="replay" class="primary">Replay</button>
+  </div>
+  <div class="two">
+    <div><p class="sub" data-role="demo-label-shallow"></p><div class="net-wrap" data-role="arch-shallow"></div><canvas data-role="demo-shallow" role="img" aria-label="Shallow network's fit to the zigzag"></canvas></div>
+    <div><p class="sub" data-role="demo-label-deep"></p><div class="net-wrap" data-role="arch-deep"></div><canvas data-role="demo-deep" role="img" aria-label="Deep network's fit to the zigzag"></canvas></div>
+  </div>
+  <div class="cells" data-role="demo-cells" aria-live="polite"></div>
+  <details class="settings"><summary>Exact settings</summary><div data-role="demo-settings"></div></details>
+
+  <details class="advanced">
+  <summary>Run the full experiment: more random starts, your own settings, export</summary>
+  <p class="howto" style="margin-top:12px">Lower MSE is better. Held-out MSE is measured on points the network never trained on. Each thin line is one seed, meaning one random start. Everything runs in your browser, so the numbers are fresh measurements, not stored results.</p>
+  <div class="controls">
+    <label>Teeth<input type="number" data-k="teeth" value="4" min="1" max="32" step="1"></label>
+    <label>Parameter budget<input type="number" data-k="budget" value="400" min="20" max="5000" step="10"></label>
+    <label>Deep: hidden layers<input type="number" data-k="depth" value="6" min="2" max="16" step="1"></label>
+    <label>Activation<select data-k="act"><option value="relu">ReLU</option><option value="tanh">tanh</option><option value="sigmoid">sigmoid</option></select></label>
+    <label>Optimizer<select data-k="opt"><option value="adam">Adam</option><option value="gd">gradient descent</option></select></label>
+    <label>Learning rate<input type="number" data-k="lr" value="0.01" min="0.00001" step="0.001"></label>
+    <label>Epochs<input type="number" data-k="epochs" value="2000" min="10" max="50000" step="100"></label>
+    <label>Seeds<input type="number" data-k="seeds" value="5" min="1" max="50" step="1"></label>
+  </div>
+  <div class="readout" data-role="arch"></div>
+  <div class="controls">
+    <button data-act="run" class="primary">Run experiment</button>
+    <button data-act="cancel" disabled>Cancel</button>
+    <button data-act="json" disabled>Export JSON</button>
+    <button data-act="csv" disabled>Export CSV</button>
+  </div>
+  <div class="progress"><div></div></div>
+  <div class="readout" data-role="results" aria-live="polite">Not run yet. Results appear here with the exact settings they came from.</div>
+  <div class="key"><span><i class="sw line" style="background:var(--gray)"></i>Target</span><span><i class="sw line" style="background:var(--ochre)"></i>Shallow, one line per seed</span><span><i class="sw line" style="background:var(--plum)"></i>Deep, one line per seed</span></div>
+  <div class="two">
+    <div><p class="sub">Shallow fits</p><canvas data-role="fit-shallow" role="img" aria-label="Shallow network fits"></canvas></div>
+    <div><p class="sub">Deep fits</p><canvas data-role="fit-deep" role="img" aria-label="Deep network fits"></canvas></div>
+  </div>
+  <p class="sub mono" style="margin:10px 0 4px;color:var(--muted)">Training loss (MSE) by epoch; each grid line is 10 times the one below</p>
+  <canvas data-role="curves" role="img" aria-label="Training loss curves for every seed"></canvas>
+  </details>
+  <figcaption><details class="fine"><summary>How this works</summary>Target f(x) = 1 − |2·frac(Tx) − 1| with T teeth. 256 training points and 1,000 held-out points, both spread at random over 0 to 1 using fixed data seeds. Full-batch training on MSE, PyTorch-default starting weights. The animation uses one random start (seed 1); the full experiment runs seeds 1 to N for both networks. Each width is the whole number whose parameter count is closest to the budget, so the two counts differ slightly, and both are shown.</details></figcaption>
+</figure>
+
+<!-- TODO(Fahim): fill in your results, then delete the "hidden" attribute so the block shows on the page.
+     Quote numbers from the exported JSON/CSV, with their settings. -->
+<div class="found" id="what-i-found" hidden>
+  <h3>What I found</h3>
+  <p class="empty">[Empty. The author will fill this in after running the experiment.]</p>
+</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="s8">
+<p class="kicker">08</p>
+<h2>The short version</h2>
+<p>The universal approximation theorem answers whether a network can draw a shape. Depth is about how cheaply it can, and whether training finds the weights. The first question has a simple answer; the second is where most of the interesting work in deep learning happens.</p>
+<div class="open-q"><span class="label-tag">Open question</span>Starting from random weights, does a deep network learn to build the zigzag fold by fold, or does training get stuck?</div>
+<h3>What can't these demos tell you?</h3>
+<p>Everything here uses tiny networks trained in your browser on one or two inputs. They show how the pieces work, not how they behave at scale. Each experiment uses only a few random starts, so a gap between two settings can be luck. That's why the full experiment shows the lowest and highest result next to the average.</p>
+</section>
+</main>
+
+<footer>
+<div class="foot">
+  <h2>Sources</h2>
+  <ol>
+    <li id="c1">Rosenblatt, F. (1958). The perceptron: a probabilistic model for information storage and organization in the brain. <i>Psychological Review</i>, 65(6), 386–408. <a href="https://doi.org/10.1037/h0042519" target="_blank" rel="noopener">doi:10.1037/h0042519</a></li>
+    <li id="c2">Novikoff, A. B. J. (1962). On convergence proofs on perceptrons. <i>Proceedings of the Symposium on the Mathematical Theory of Automata</i>, Vol. 12, 615–622. Polytechnic Institute of Brooklyn. Technical report version: <a href="https://apps.dtic.mil/sti/citations/AD0298258" target="_blank" rel="noopener">DTIC AD0298258</a> <span class="unverified">[link not verified: DTIC was down for maintenance each time it was checked]</span></li>
+    <li id="c3">Widrow, B. and Hoff, M. E. (1960). Adaptive switching circuits. <i>IRE WESCON Convention Record</i>, Part 4, 96–104. <a href="https://www-isl.stanford.edu/~widrow/papers/c1960adaptiveswitching.pdf" target="_blank" rel="noopener">Scan hosted by Widrow's Stanford lab</a>. The work dates from 1959; the paper was published in 1960.</li>
+    <li id="c4">Minsky, M. and Papert, S. (1969). <i>Perceptrons: An Introduction to Computational Geometry</i>. MIT Press. <a href="https://mitpress.mit.edu/9780262630221/perceptrons/" target="_blank" rel="noopener">Publisher's page</a></li>
+    <li id="c5">Rumelhart, D. E., Hinton, G. E., and Williams, R. J. (1986). Learning representations by back-propagating errors. <i>Nature</i>, 323, 533–536. <a href="https://doi.org/10.1038/323533a0" target="_blank" rel="noopener">doi:10.1038/323533a0</a></li>
+    <li id="c6">Rumelhart, D. E., Hinton, G. E., and Williams, R. J. (1986). Learning internal representations by error propagation. In Rumelhart, D. E. and McClelland, J. L. (eds.), <i>Parallel Distributed Processing</i>, Vol. 1, 318–362. MIT Press. Where the method is presented as the generalized delta rule. Reprinted in Anderson, J. A. and Rosenfeld, E. (eds.), <i>Neurocomputing</i>, Vol. 1 (1988), MIT Press: <a href="https://doi.org/10.7551/mitpress/4943.003.0128" target="_blank" rel="noopener">doi:10.7551/mitpress/4943.003.0128</a></li>
+    <li id="c7">Werbos, P. J. (1974). <i>Beyond Regression: New Tools for Prediction and Analysis in the Behavioral Sciences</i>. PhD thesis, Harvard University. Full text reprinted in Werbos, P. J. (1994), <i>The Roots of Backpropagation</i>, Wiley: <a href="https://www.wiley-vch.de/en/areas-interest/engineering/the-roots-of-backpropagation-978-0-471-59897-8" target="_blank" rel="noopener">publisher's page</a></li>
+    <li id="c8">Brown, T. et al. (2020). Language models are few-shot learners. <i>Advances in Neural Information Processing Systems 33</i>. <a href="https://proceedings.neurips.cc/paper/2020/hash/1457c0d6bfcb4967418bfb8ac142f64a-Abstract.html" target="_blank" rel="noopener">NeurIPS proceedings</a>. Table 2.1 gives 96 layers and d<sub>model</sub> = 12,288 for the 175B model; Section 2.1 states d<sub>ff</sub> = 4 × d<sub>model</sub>, which is 49,152.</li>
+    <li id="c9">Cybenko, G. (1989). Approximation by superpositions of a sigmoidal function. <i>Mathematics of Control, Signals and Systems</i>, 2(4), 303–314. <a href="https://doi.org/10.1007/BF02551274" target="_blank" rel="noopener">doi:10.1007/BF02551274</a></li>
+    <li id="c10">Hornik, K. (1991). Approximation capabilities of multilayer feedforward networks. <i>Neural Networks</i>, 4(2), 251–257. <a href="https://doi.org/10.1016/0893-6080(91)90009-T" target="_blank" rel="noopener">doi:10.1016/0893-6080(91)90009-T</a></li>
+    <li id="c11">Eldan, R. and Shamir, O. (2016). The power of depth for feedforward neural networks. <i>Proceedings of the 29th Conference on Learning Theory</i>, PMLR 49, 907–940. <a href="https://proceedings.mlr.press/v49/eldan16.html" target="_blank" rel="noopener">PMLR</a></li>
+    <li id="c12">Telgarsky, M. (2016). Benefits of depth in neural networks. <i>Proceedings of the 29th Conference on Learning Theory</i>, PMLR 49, 1517–1539. <a href="https://proceedings.mlr.press/v49/telgarsky16.html" target="_blank" rel="noopener">PMLR</a></li>
+    <li id="c13">Welch Labs (2025, January 31). ChatGPT is made from 100 million of these [The Perceptron]. <a href="https://www.youtube.com/watch?v=l-9ALe3U-Fg" target="_blank" rel="noopener">YouTube</a>. The historical arc of this piece follows this video.</li>
+  </ol>
+
+  <h2>How the numbers are computed</h2>
+  <ol>
+    <li>Every number in the figures is computed live in your browser, in double-precision JavaScript. Nothing is precomputed or stored. Constants in the text and diagrams (dates, GPT-3 sizes) come from the sources above.</li>
+    <li>Randomness comes from a seeded generator (mulberry32), so the same seed and settings give the same result on any machine. Weights and biases start from U(−1/√fan_in, 1/√fan_in), the PyTorch <code>nn.Linear</code> default. Training is full batch, the loss is mean squared error, and Adam uses β = (0.9, 0.999) and ε = 10<sup>−8</sup>.</li>
+    <li>Gradients are exact backpropagation. A test suite checks them against finite differences, checks that a step network's gradients are exactly zero, that k stacked tent blocks give 2<sup>k</sup> pieces, that the construct mode passes through every knot, and that the perceptron converges on OR and cycles on XOR.</li>
+    <li>The "best any line can do" readout is exact: it tries one direction between each pair of critical angles and every threshold along it. The tent-block piece counts track breakpoints exactly through each ReLU rather than sampling.</li>
+  </ol>
+
+  <hr class="foot-rule">
+  <p class="repo">Source code, tests and build script: <a href="https://github.com/f-a-tonmoy/nn-explainer" target="_blank" rel="noopener">github.com/f-a-tonmoy/nn-explainer</a></p>
+</div>
+</footer>
+
+<button class="to-top" type="button" aria-label="Back to top">↑ Top</button>
+
+<script id="nn-src">
+/* @inline nn.js */
+</script>
+<script>
+/* @inline app.js */
+</script>
+</body>
+</html>

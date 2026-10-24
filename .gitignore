@@ -1,0 +1,3 @@
+# local-only files: the script that draws og.png (the image itself is committed) and private notes
+make_og.py
+NOTES.md
