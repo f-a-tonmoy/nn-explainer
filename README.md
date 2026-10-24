@@ -1,10 +1,10 @@
 # Perceptrons, the Atomic Unit of Neural Networks
 
+[![Perceptrons, the atomic unit of neural networks](og.png)](https://f-a-tonmoy.github.io/nn-explainer/)
+
 **Live:** https://f-a-tonmoy.github.io/nn-explainer/
 
 An interactive explainer that follows one artificial neuron from a single perceptron to a deep network: the learning rule, why one neuron can't learn XOR, backpropagation, universal approximation, and what depth buys. Every number on the page is computed live in your browser.
-
-By [Fahim Ahamed](https://www.linkedin.com/in/f-a-tonmoy/) · [Portfolio](https://f-a-tonmoy.github.io/)
 
 `index.html` is one self-contained page (only Google Fonts load from outside). It is generated, so edit `src/` and rebuild.
 
